@@ -9,21 +9,21 @@
     html, body {margin:0;padding:0;height:100%;font-family:'Segoe UI', Arial, sans-serif;background:#0a0a14;color:#fff;}
     
     #container {
-      display:grid;
-      grid-template-columns:350px 1fr 350px;
-      grid-template-rows:60px 1fr 250px;
-      height:100vh;
-      gap:0;
+      position: relative;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     
     #header {
-      grid-column:1 / -1;
       background:#1a1a2e;
       border-bottom:2px solid #00acc1;
       padding:0 30px;
+      height: 60px;
       display:flex;
       align-items:center;
       justify-content:space-between;
+      z-index: 1000;
     }
     
     #header h1 {
@@ -43,9 +43,8 @@
     }
     
     #map-container {
-      grid-column:2;
-      grid-row:2 / 4;
-      position:relative;
+      flex: 1;
+      position: relative;
     }
     
     #map {
@@ -53,223 +52,374 @@
       height:100%;
     }
     
+    /* Left Panel - Collapsible */
     #left-panel {
-      grid-column:1;
-      grid-row:2;
-      background:#0f0f23;
-      border-right:2px solid #00acc1;
-      overflow-y:auto;
-      padding:20px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 280px;
+      background: rgba(15, 15, 35, 0.95);
+      border-right: 2px solid #00acc1;
+      overflow-y: auto;
+      padding: 15px;
+      z-index: 500;
+      transition: transform 0.3s ease;
+      backdrop-filter: blur(10px);
     }
     
-    #right-panel {
-      grid-column:3;
-      grid-row:2;
-      background:#0f0f23;
-      border-left:2px solid #00acc1;
-      overflow-y:auto;
-      padding:20px;
+    #left-panel.collapsed {
+      transform: translateX(-280px);
     }
     
-    #alert-panel {
-      grid-column:1 / -1;
-      grid-row:3;
-      background:#1a1a2e;
-      border-top:2px solid #f44336;
-      overflow-y:auto;
-      padding:20px;
+    #left-panel-toggle {
+      position: absolute;
+      right: -35px;
+      top: 20px;
+      background: #00acc1;
+      color: #000;
+      border: none;
+      padding: 10px 8px;
+      cursor: pointer;
+      border-radius: 0 6px 6px 0;
+      font-size: 16px;
+      font-weight: 700;
+      z-index: 501;
+    }
+    
+    /* Inbound Alert Box - Top Right */
+    #inbound-alert-box {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      min-width: 250px;
+      max-width: 350px;
+      max-height: 400px;
+      background: rgba(15, 15, 35, 0.95);
+      border: 2px solid #4caf50;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 500;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    
+    #inbound-alert-box.empty {
+      display: none;
+    }
+    
+    .inbound-header {
+      font-size: 14px;
+      font-weight: 700;
+      color: #4caf50;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .inbound-count {
+      background: #4caf50;
+      color: #000;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    /* Conflict Alert Box - Draggable & Resizable */
+    #conflict-alert-box {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      max-height: 300px;
+      background: rgba(26, 26, 46, 0.98);
+      border: 3px solid #f44336;
+      border-radius: 8px;
+      z-index: 600;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(244, 67, 54, 0.4);
+      resize: both;
+      overflow: hidden;
+      min-width: 400px;
+      min-height: 150px;
+    }
+    
+    #conflict-alert-box.hidden {
+      display: none;
+    }
+    
+    #conflict-alert-box.has-alerts {
+      animation: alertPulse 2s infinite;
+    }
+    
+    @keyframes alertPulse {
+      0%, 100% { border-color: #f44336; box-shadow: 0 8px 32px rgba(244, 67, 54, 0.4); }
+      50% { border-color: #ff6b60; box-shadow: 0 8px 32px rgba(244, 67, 54, 0.8); }
+    }
+    
+    #conflict-header {
+      background: #f44336;
+      color: #fff;
+      padding: 10px 15px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    
+    #conflict-header-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    #conflict-controls {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .control-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    .control-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    #conflict-content {
+      padding: 15px;
+      overflow-y: auto;
+      max-height: calc(100% - 100px);
     }
     
     .panel-section {
-      margin-bottom:20px;
-      background:#1a1a2e;
-      border-radius:8px;
-      padding:15px;
+      margin-bottom: 15px;
+      background: rgba(26, 26, 46, 0.6);
+      border-radius: 6px;
+      padding: 12px;
     }
     
     .panel-header {
-      font-size:14px;
-      font-weight:700;
-      color:#00acc1;
-      margin-bottom:10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #00acc1;
+      margin-bottom: 8px;
+      text-transform: uppercase;
     }
     
     .traffic-item {
-      background:#0f0f23;
-      padding:10px;
-      margin:6px 0;
-      border-radius:6px;
-      border-left:4px solid #00acc1;
-      cursor:pointer;
-      font-size:12px;
+      background: rgba(15, 15, 35, 0.8);
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border-left: 3px solid #00acc1;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
     }
     
     .traffic-item:hover {
-      background:#1a1a2e;
+      background: rgba(26, 26, 46, 0.9);
     }
     
     .traffic-item.inbound-item {
-      border-left-color:#4caf50;
+      border-left-color: #4caf50;
     }
     
     .traffic-item.outbound-item {
-      border-left-color:#f44336;
+      border-left-color: #f44336;
     }
     
     .traffic-item.crossing-item {
-      border-left-color:#ff9800;
+      border-left-color: #ff9800;
     }
     
     .traffic-callsign {
-      font-size:14px;
-      font-weight:700;
-      color:#00acc1;
+      font-size: 13px;
+      font-weight: 700;
+      color: #00acc1;
     }
     
     .traffic-details {
-      font-size:12px;
-      color:#888;
-      margin-top:5px;
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
     }
     
     .empty-state {
-      text-align:center;
-      padding:20px;
-      color:#666;
-      font-size:13px;
+      text-align: center;
+      padding: 15px;
+      color: #666;
+      font-size: 12px;
+      font-style: italic;
     }
     
     .alert-item {
-      background:#0f0f23;
-      padding:12px;
-      margin:8px 0;
-      border-radius:6px;
-      border-left:4px solid #f44336;
-      font-size:13px;
+      background: rgba(15, 15, 35, 0.8);
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border-left: 4px solid #f44336;
+      font-size: 12px;
     }
     
     .alert-item.critical {
-      border-left-color:#f44336;
-      background:#3d0a0a;
+      border-left-color: #f44336;
+      background: rgba(61, 10, 10, 0.8);
     }
     
     .alert-item.warning {
-      border-left-color:#ff9800;
-      background:#3d2a0a;
+      border-left-color: #ff9800;
+      background: rgba(61, 42, 10, 0.8);
     }
     
     .alert-item.caution {
-      border-left-color:#ffeb3b;
-      background:#3d3a0a;
+      border-left-color: #ffeb3b;
+      background: rgba(61, 58, 10, 0.8);
     }
     
     .alert-header {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
     }
     
     .alert-severity {
-      font-weight:700;
-      font-size:12px;
-      padding:2px 6px;
-      border-radius:3px;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
     }
     
     .alert-severity.critical {
-      background:#f44336;
-      color:#fff;
+      background: #f44336;
+      color: #fff;
     }
     
     .alert-severity.warning {
-      background:#ff9800;
-      color:#000;
+      background: #ff9800;
+      color: #000;
     }
     
     .alert-severity.caution {
-      background:#ffeb3b;
-      color:#000;
+      background: #ffeb3b;
+      color: #000;
     }
     
     .alert-aircraft {
-      font-weight:700;
-      color:#00acc1;
+      font-weight: 700;
+      color: #00acc1;
     }
     
     .alert-details {
-      color:#888;
-      font-size:12px;
-      margin-top:5px;
+      color: #aaa;
+      font-size: 11px;
+      margin-top: 5px;
+      line-height: 1.4;
     }
     
     .alert-time {
-      color:#f44336;
-      font-weight:700;
+      color: #f44336;
+      font-weight: 700;
+      font-size: 13px;
     }
     
     .alert-summary {
-      display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:10px;
-      margin-bottom:15px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
     }
     
     .alert-count {
-      background:#0f0f23;
-      padding:10px;
-      border-radius:6px;
-      text-align:center;
+      background: rgba(15, 15, 35, 0.6);
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
     }
     
     .alert-count-value {
-      font-size:24px;
-      font-weight:700;
+      font-size: 20px;
+      font-weight: 700;
     }
     
     .alert-count-value.critical {
-      color:#f44336;
+      color: #f44336;
     }
     
     .alert-count-value.warning {
-      color:#ff9800;
+      color: #ff9800;
     }
     
     .alert-count-value.caution {
-      color:#ffeb3b;
+      color: #ffeb3b;
     }
     
     .alert-count-label {
-      font-size:10px;
-      color:#888;
-      text-transform:uppercase;
-      margin-top:3px;
+      font-size: 9px;
+      color: #888;
+      text-transform: uppercase;
+      margin-top: 3px;
     }
     
     .status-indicator {
-      display:inline-block;
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      margin-left:10px;
-      animation:pulse 2s infinite;
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 10px;
+      animation: pulse 2s infinite;
     }
     
     .status-indicator.live {
-      background:#4caf50;
+      background: #4caf50;
     }
     
     .status-indicator.fallback {
-      background:#ff9800;
+      background: #ff9800;
     }
     
     .status-indicator.error {
-      background:#f44336;
+      background: #f44336;
     }
     
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 15, 35, 0.5);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #00acc1;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00d4e8;
     }
   </style>
 </head>
@@ -290,57 +440,70 @@
       </div>
     </div>
     
-    <div id="left-panel">
-      <div class="panel-section">
-        <div class="panel-header">🎯 Active in Sector</div>
-        
-        <div style="margin-top:15px;">
-          <div style="font-size:12px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
-          <div id="active-inbound"></div>
-        </div>
-        
-        <div style="margin-top:15px;">
-          <div style="font-size:12px;font-weight:700;color:#f44336;margin-bottom:8px;">⬆️ OUTBOUND</div>
-          <div id="active-outbound"></div>
-        </div>
-        
-        <div style="margin-top:15px;">
-          <div style="font-size:12px;font-weight:700;color:#ff9800;margin-bottom:8px;">↔️ CROSSING</div>
-          <div id="active-crossing"></div>
-        </div>
-      </div>
-    </div>
-    
     <div id="map-container">
       <div id="map"></div>
-    </div>
-    
-    <div id="right-panel">
-      <div class="panel-section">
-        <div class="panel-header">📡 Inbound Traffic</div>
+      
+      <!-- Left Panel - Collapsible -->
+      <div id="left-panel">
+        <button id="left-panel-toggle" onclick="toggleLeftPanel()">◀</button>
+        
+        <div class="panel-section">
+          <div class="panel-header">🎯 Active in Sector</div>
+          
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:6px;">⬇️ INBOUND</div>
+            <div id="active-inbound"></div>
+          </div>
+          
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;font-weight:700;color:#f44336;margin-bottom:6px;">⬆️ OUTBOUND</div>
+            <div id="active-outbound"></div>
+          </div>
+          
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;font-weight:700;color:#ff9800;margin-bottom:6px;">↔️ CROSSING</div>
+            <div id="active-crossing"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Inbound Alert Box - Top Right -->
+      <div id="inbound-alert-box">
+        <div class="inbound-header">
+          📡 INBOUND TRAFFIC
+          <span class="inbound-count" id="inbound-count">0</span>
+        </div>
         <div id="inbound-traffic"></div>
       </div>
-    </div>
-    
-    <div id="alert-panel">
-      <div class="panel-header" style="color:#f44336;font-size:18px;margin-bottom:15px;">
-        🚨 CONFLICT ALERTS - Predictive Detection System
+      
+      <!-- Conflict Alert Box - Draggable -->
+      <div id="conflict-alert-box" class="hidden">
+        <div id="conflict-header">
+          <div id="conflict-header-title">
+            🚨 CONFLICT ALERTS
+          </div>
+          <div id="conflict-controls">
+            <button class="control-btn" onclick="toggleConflictBox()">HIDE</button>
+          </div>
+        </div>
+        <div id="conflict-content">
+          <div class="alert-summary">
+            <div class="alert-count">
+              <div class="alert-count-value critical" id="critical-count">0</div>
+              <div class="alert-count-label">Critical</div>
+            </div>
+            <div class="alert-count">
+              <div class="alert-count-value warning" id="warning-count">0</div>
+              <div class="alert-count-label">Warning</div>
+            </div>
+            <div class="alert-count">
+              <div class="alert-count-value caution" id="caution-count">0</div>
+              <div class="alert-count-label">Caution</div>
+            </div>
+          </div>
+          <div id="alerts-list"></div>
+        </div>
       </div>
-      <div class="alert-summary">
-        <div class="alert-count">
-          <div class="alert-count-value critical" id="critical-count">0</div>
-          <div class="alert-count-label">Critical (&lt;3 min)</div>
-        </div>
-        <div class="alert-count">
-          <div class="alert-count-value warning" id="warning-count">0</div>
-          <div class="alert-count-label">Warning (3-5 min)</div>
-        </div>
-        <div class="alert-count">
-          <div class="alert-count-value caution" id="caution-count">0</div>
-          <div class="alert-count-label">Caution (5-10 min)</div>
-        </div>
-      </div>
-      <div id="alerts-list"></div>
     </div>
   </div>
 
@@ -353,6 +516,8 @@
     let apiFailCount = 0;
     let useFallback = false;
     let lastSuccessfulFetch = null;
+    let leftPanelCollapsed = false;
+    let conflictBoxHidden = false;
     
     const facilities = {
       KSFO: {pos: [37.6213, -122.3789], radius: 50},
@@ -370,12 +535,73 @@
       drawSectorBoundary();
       loadLiveTraffic();
       
-      // Use longer interval to avoid rate limiting
-      setInterval(loadLiveTraffic, 45000); // 45 seconds instead of 30
+      setInterval(loadLiveTraffic, 45000);
       setInterval(detectConflicts, 5000);
       
       updateStatus('live', 'System Online');
+      
+      // Make conflict box draggable
+      makeDraggable(document.getElementById('conflict-alert-box'));
     });
+
+    function toggleLeftPanel() {
+      const panel = document.getElementById('left-panel');
+      const toggle = document.getElementById('left-panel-toggle');
+      leftPanelCollapsed = !leftPanelCollapsed;
+      
+      if (leftPanelCollapsed) {
+        panel.classList.add('collapsed');
+        toggle.textContent = '▶';
+      } else {
+        panel.classList.remove('collapsed');
+        toggle.textContent = '◀';
+      }
+    }
+
+    function toggleConflictBox() {
+      const box = document.getElementById('conflict-alert-box');
+      conflictBoxHidden = !conflictBoxHidden;
+      
+      if (conflictBoxHidden) {
+        box.classList.add('hidden');
+      } else {
+        box.classList.remove('hidden');
+      }
+    }
+
+    function makeDraggable(element) {
+      const header = document.getElementById('conflict-header');
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      
+      header.onmousedown = dragMouseDown;
+      
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+      
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+        element.style.bottom = "auto";
+        element.style.transform = "none";
+      }
+      
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
 
     function updateStatus(type, message) {
       const statusText = document.getElementById('status-text');
@@ -420,7 +646,6 @@
       trafficMarkers = [];
       liveTraffic = [];
 
-      // If we've had too many failures or are in fallback mode, use simulation
       if (useFallback || apiFailCount > 3) {
         console.log('Using fallback mode');
         updateStatus('fallback', 'Using Simulated Data');
@@ -432,7 +657,7 @@
       try {
         const facility = facilities[currentFacility];
         const bounds = {
-          lamin: facility.pos[0] - 1.5,  // Reduced search area
+          lamin: facility.pos[0] - 1.5,
           lomin: facility.pos[1] - 1.5,
           lamax: facility.pos[0] + 1.5,
           lomax: facility.pos[1] + 1.5
@@ -440,7 +665,6 @@
         
         const url = `https://opensky-network.org/api/states/all?lamin=${bounds.lamin}&lomin=${bounds.lomin}&lamax=${bounds.lamax}&lomax=${bounds.lomax}`;
         
-        // Add timeout to prevent hanging
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         
@@ -466,7 +690,7 @@
           console.log('OpenSky data:', data.states ? data.states.length : 0, 'aircraft');
           
           if (data.states && data.states.length > 0) {
-            apiFailCount = 0; // Reset fail count on success
+            apiFailCount = 0;
             lastSuccessfulFetch = Date.now();
             updateStatus('live', `Live Data - ${data.states.length} aircraft`);
             processTraffic(data.states);
@@ -475,7 +699,6 @@
           }
         }
         
-        // If we get here, API didn't give us data
         console.warn('No data from API - using fallback');
         apiFailCount++;
         loadFallbackTraffic();
@@ -500,7 +723,7 @@
     function processTraffic(states) {
       const facility = facilities[currentFacility];
       const currentTime = Date.now();
-      const maxAircraft = 50; // Limit processing
+      const maxAircraft = 50;
       let processedCount = 0;
       
       for (let i = 0; i < states.length && processedCount < maxAircraft; i++) {
@@ -517,7 +740,6 @@
         if (latitude && longitude && !on_ground && baro_altitude && velocity) {
           const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
           
-          // Only process aircraft within reasonable range
           if (dist > sectorRadius * 2.5) continue;
           
           processedCount++;
@@ -534,7 +756,6 @@
             lastSeen: currentTime
           };
           
-          // Determine traffic type
           const bearingToFacility = calculateBearing(latitude, longitude, facility.pos[0], facility.pos[1]);
           const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], latitude, longitude);
           
@@ -555,14 +776,12 @@
           liveTraffic.push(aircraft);
           lastSeenAircraft.set(icao24, aircraft);
           
-          // Add marker
           addAircraftMarker(aircraft);
         }
       }
       
       console.log('Processed', processedCount, 'aircraft');
       
-      // Clean up stale aircraft
       const staleTimeout = 120000;
       lastSeenAircraft.forEach((aircraft, icao24) => {
         if (currentTime - aircraft.lastSeen > staleTimeout) {
@@ -606,7 +825,6 @@
     function loadFallbackTraffic() {
       const facility = facilities[currentFacility];
       
-      // Generate more realistic fallback traffic
       const fallback = [
         { callsign: 'UAL123', offset: [0.15, -0.10], altitude: 8000, speed: 250, heading: 180 },
         { callsign: 'SWA456', offset: [-0.20, 0.08], altitude: 12000, speed: 280, heading: 270 },
@@ -662,6 +880,7 @@
       const outboundContainer = document.getElementById('active-outbound');
       const crossingContainer = document.getElementById('active-crossing');
       const inboundPredictContainer = document.getElementById('inbound-traffic');
+      const inboundAlertBox = document.getElementById('inbound-alert-box');
       
       if (!inboundContainer || !outboundContainer || !crossingContainer || !inboundPredictContainer) {
         console.error('Display containers not found');
@@ -678,62 +897,56 @@
       outbound.sort((a, b) => a.distance - b.distance);
       crossing.sort((a, b) => a.distance - b.distance);
       
-      // Display inbound
       inboundContainer.innerHTML = inbound.length === 0 ? 
-        '<div class="empty-state">No inbound aircraft</div>' :
+        '<div class="empty-state">No inbound</div>' :
         inbound.map(ac => `
           <div class="traffic-item inbound-item">
             <div class="traffic-callsign">${ac.callsign}</div>
             <div class="traffic-details">
-              Alt: ${ac.altitude.toLocaleString()} ft | 
-              Hdg: ${Math.round(ac.heading)}° | 
-              Dist: ${ac.distance.toFixed(1)} nm
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
             </div>
           </div>
         `).join('');
       
-      // Display outbound
       outboundContainer.innerHTML = outbound.length === 0 ?
-        '<div class="empty-state">No outbound aircraft</div>' :
+        '<div class="empty-state">No outbound</div>' :
         outbound.map(ac => `
           <div class="traffic-item outbound-item">
             <div class="traffic-callsign">${ac.callsign}</div>
             <div class="traffic-details">
-              Alt: ${ac.altitude.toLocaleString()} ft | 
-              Hdg: ${Math.round(ac.heading)}° | 
-              Dist: ${ac.distance.toFixed(1)} nm
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
             </div>
           </div>
         `).join('');
       
-      // Display crossing
       crossingContainer.innerHTML = crossing.length === 0 ?
-        '<div class="empty-state">No crossing traffic</div>' :
+        '<div class="empty-state">No crossing</div>' :
         crossing.map(ac => `
           <div class="traffic-item crossing-item">
             <div class="traffic-callsign">${ac.callsign}</div>
             <div class="traffic-details">
-              Alt: ${ac.altitude.toLocaleString()} ft | 
-              Hdg: ${Math.round(ac.heading)}° | 
-              Dist: ${ac.distance.toFixed(1)} nm
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
             </div>
           </div>
         `).join('');
       
       // Inbound predictions
       const inboundTraffic = predictInbound();
-      inboundPredictContainer.innerHTML = inboundTraffic.length === 0 ?
-        '<div class="empty-state">No predicted inbound</div>' :
-        inboundTraffic.map(ac => `
+      document.getElementById('inbound-count').textContent = inboundTraffic.length;
+      
+      if (inboundTraffic.length === 0) {
+        inboundAlertBox.classList.add('empty');
+      } else {
+        inboundAlertBox.classList.remove('empty');
+        inboundPredictContainer.innerHTML = inboundTraffic.map(ac => `
           <div class="traffic-item">
             <div class="traffic-callsign">${ac.callsign}</div>
             <div class="traffic-details">
-              Alt: ${ac.altitude.toLocaleString()} ft | 
-              ETA: ${ac.eta} min | 
-              Dist: ${ac.distance.toFixed(1)} nm
+              ${ac.altitude.toLocaleString()}ft | ETA: ${ac.eta}min | ${ac.distance.toFixed(1)}nm
             </div>
           </div>
         `).join('');
+      }
     }
 
     function predictInbound() {
@@ -761,7 +974,7 @@
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 3440.065; // Earth radius in nautical miles
+      const R = 3440.065;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -780,11 +993,10 @@
       return (bearing + 360) % 360;
     }
     
-    // MISSING FUNCTION - Calculate end point given start, bearing, and distance
     function calculateEndPoint(lat1, lon1, bearing, distanceNM) {
-      const R = 3440.065; // Earth radius in nautical miles
-      const d = distanceNM / R; // Angular distance
-      const brng = bearing * Math.PI / 180; // Convert bearing to radians
+      const R = 3440.065;
+      const d = distanceNM / R;
+      const brng = bearing * Math.PI / 180;
       const lat1Rad = lat1 * Math.PI / 180;
       const lon1Rad = lon1 * Math.PI / 180;
       
@@ -805,22 +1017,18 @@
       const alerts = [];
       const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
       
-      // Only check conflicts if we have enough aircraft and valid speed data
       if (activeTraffic.length < 2) {
         displayAlerts([]);
         return;
       }
       
-      // Check every pair of aircraft
       for (let i = 0; i < activeTraffic.length; i++) {
         for (let j = i + 1; j < activeTraffic.length; j++) {
           const ac1 = activeTraffic[i];
           const ac2 = activeTraffic[j];
           
-          // Skip if either aircraft has invalid speed
           if (!ac1.speed || !ac2.speed || ac1.speed < 50 || ac2.speed < 50) continue;
           
-          // Predict future positions (1-10 minutes ahead)
           for (let minutes = 1; minutes <= 10; minutes++) {
             const pos1 = predictPosition(ac1, minutes);
             const pos2 = predictPosition(ac2, minutes);
@@ -828,7 +1036,6 @@
             const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
             const altSeparation = Math.abs(pos1.alt - pos2.alt);
             
-            // Conflict: <5nm lateral AND <1000ft vertical
             if (futureDistance < 5 && altSeparation < 1000) {
               const existingAlert = alerts.find(a => 
                 (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
@@ -887,6 +1094,7 @@
     
     function displayAlerts(alerts) {
       const alertsList = document.getElementById('alerts-list');
+      const conflictBox = document.getElementById('conflict-alert-box');
       
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const warning = alerts.filter(a => a.severity === 'warning').length;
@@ -897,9 +1105,18 @@
       document.getElementById('caution-count').textContent = caution;
       
       if (alerts.length === 0) {
-        alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
+        alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected</div>';
+        conflictBox.classList.remove('has-alerts');
         return;
       }
+      
+      // Show conflict box if hidden and there are new alerts
+      if (conflictBoxHidden && alerts.length > 0) {
+        conflictBoxHidden = false;
+        conflictBox.classList.remove('hidden');
+      }
+      
+      conflictBox.classList.add('has-alerts');
       
       alerts.sort((a, b) => a.timeToConflict - b.timeToConflict);
       
@@ -909,15 +1126,15 @@
             <span class="alert-severity ${alert.severity}">${alert.severity.toUpperCase()}</span>
             <span class="alert-time">⏱️ ${alert.timeToConflict} min</span>
           </div>
-          <div style="margin:8px 0;">
+          <div style="margin:6px 0;">
             <span class="alert-aircraft">${alert.aircraft1}</span>
-            <span style="color:#666;">↔</span>
+            <span style="color:#666;"> ↔ </span>
             <span class="alert-aircraft">${alert.aircraft2}</span>
           </div>
           <div class="alert-details">
-            📏 Predicted separation: ${alert.predictedDistance.toFixed(1)} nm<br>
-            📊 Altitude diff: ${alert.altSeparation.toLocaleString()} ft<br>
-            ✈️ Alt 1: ${alert.alt1.toLocaleString()} ft | Alt 2: ${alert.alt2.toLocaleString()} ft
+            📏 ${alert.predictedDistance.toFixed(1)} nm separation<br>
+            📊 ${alert.altSeparation.toLocaleString()} ft altitude diff<br>
+            ✈️ ${alert.alt1.toLocaleString()} ft | ${alert.alt2.toLocaleString()} ft
           </div>
         </div>
       `).join('');
