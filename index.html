@@ -11,7 +11,7 @@
     #container {
       display:grid;
       grid-template-columns:350px 1fr 350px;
-      grid-template-rows:60px 1fr;
+      grid-template-rows:60px 1fr 250px;
       height:100vh;
       gap:0;
     }
@@ -44,7 +44,7 @@
     
     #map-container {
       grid-column:2;
-      grid-row:2;
+      grid-row:2 / 4;
       position:relative;
     }
     
@@ -67,6 +67,15 @@
       grid-row:2;
       background:#0f0f23;
       border-left:2px solid #00acc1;
+      overflow-y:auto;
+      padding:20px;
+    }
+    
+    #alert-panel {
+      grid-column:1 / -1;
+      grid-row:3;
+      background:#1a1a2e;
+      border-top:2px solid #f44336;
       overflow-y:auto;
       padding:20px;
     }
@@ -129,6 +138,113 @@
       color:#666;
       font-size:13px;
     }
+    
+    .alert-item {
+      background:#0f0f23;
+      padding:12px;
+      margin:8px 0;
+      border-radius:6px;
+      border-left:4px solid #f44336;
+      font-size:13px;
+    }
+    
+    .alert-item.critical {
+      border-left-color:#f44336;
+      background:#3d0a0a;
+    }
+    
+    .alert-item.warning {
+      border-left-color:#ff9800;
+      background:#3d2a0a;
+    }
+    
+    .alert-item.caution {
+      border-left-color:#ffeb3b;
+      background:#3d3a0a;
+    }
+    
+    .alert-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:6px;
+    }
+    
+    .alert-severity {
+      font-weight:700;
+      font-size:12px;
+      padding:2px 6px;
+      border-radius:3px;
+    }
+    
+    .alert-severity.critical {
+      background:#f44336;
+      color:#fff;
+    }
+    
+    .alert-severity.warning {
+      background:#ff9800;
+      color:#000;
+    }
+    
+    .alert-severity.caution {
+      background:#ffeb3b;
+      color:#000;
+    }
+    
+    .alert-aircraft {
+      font-weight:700;
+      color:#00acc1;
+    }
+    
+    .alert-details {
+      color:#888;
+      font-size:12px;
+      margin-top:5px;
+    }
+    
+    .alert-time {
+      color:#f44336;
+      font-weight:700;
+    }
+    
+    .alert-summary {
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:10px;
+      margin-bottom:15px;
+    }
+    
+    .alert-count {
+      background:#0f0f23;
+      padding:10px;
+      border-radius:6px;
+      text-align:center;
+    }
+    
+    .alert-count-value {
+      font-size:24px;
+      font-weight:700;
+    }
+    
+    .alert-count-value.critical {
+      color:#f44336;
+    }
+    
+    .alert-count-value.warning {
+      color:#ff9800;
+    }
+    
+    .alert-count-value.caution {
+      color:#ffeb3b;
+    }
+    
+    .alert-count-label {
+      font-size:10px;
+      color:#888;
+      text-transform:uppercase;
+      margin-top:3px;
+    }
   </style>
 </head>
 <body>
@@ -175,6 +291,27 @@
         <div id="inbound-traffic"></div>
       </div>
     </div>
+    
+    <div id="alert-panel">
+      <div class="panel-header" style="color:#f44336;font-size:18px;margin-bottom:15px;">
+        🚨 CONFLICT ALERTS - Predictive Detection System
+      </div>
+      <div class="alert-summary">
+        <div class="alert-count">
+          <div class="alert-count-value critical" id="critical-count">0</div>
+          <div class="alert-count-label">Critical (&lt;3 min)</div>
+        </div>
+        <div class="alert-count">
+          <div class="alert-count-value warning" id="warning-count">0</div>
+          <div class="alert-count-label">Warning (3-5 min)</div>
+        </div>
+        <div class="alert-count">
+          <div class="alert-count-value caution" id="caution-count">0</div>
+          <div class="alert-count-label">Caution (5-10 min)</div>
+        </div>
+      </div>
+      <div id="alerts-list"></div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -200,6 +337,7 @@
       drawSectorBoundary();
       loadLiveTraffic();
       setInterval(loadLiveTraffic, 30000);
+      setInterval(detectConflicts, 5000); // Check for conflicts every 5 seconds
     });
 
     function changeFacility() {
@@ -249,17 +387,33 @@
         const url = 'https://opensky-network.org/api/states/all?lamin=' + bounds.lamin + '&lomin=' + bounds.lomin + '&lamax=' + bounds.lamax + '&lomax=' + bounds.lomax;
         const response = await fetch(url);
         
+        console.log('OpenSky response status:', response.status);
+        
+        if (response.status === 429) {
+          console.warn('Rate limited by OpenSky - using fallback');
+          document.getElementById('header').style.borderBottom = '2px solid #ff9800';
+          loadFallbackTraffic();
+          updateTrafficDisplay();
+          return;
+        }
+        
         if (response.ok) {
           const data = await response.json();
-          if (data.states) {
+          console.log('OpenSky data received:', data.states ? data.states.length : 0, 'aircraft');
+          if (data.states && data.states.length > 0) {
+            document.getElementById('header').style.borderBottom = '2px solid #00acc1';
             processTraffic(data.states);
             updateTrafficDisplay();
             return;
           }
         }
+        
+        console.warn('OpenSky returned no data - using fallback');
+        document.getElementById('header').style.borderBottom = '2px solid #ff9800';
         loadFallbackTraffic();
       } catch (error) {
         console.error('Traffic load error:', error);
+        document.getElementById('header').style.borderBottom = '2px solid #f44336';
         loadFallbackTraffic();
       }
       
@@ -270,7 +424,12 @@
       const facility = facilities[currentFacility];
       const currentTime = Date.now();
       
-      states.forEach(state => {
+      // Process in batches for better performance
+      const batchSize = 50;
+      let processedCount = 0;
+      
+      for (let i = 0; i < states.length && processedCount < 100; i++) {
+        const state = states[i];
         const longitude = state[5];
         const latitude = state[6];
         const baro_altitude = state[7];
@@ -281,6 +440,8 @@
         const icao24 = state[0];
         
         if (latitude && longitude && !on_ground && baro_altitude) {
+          processedCount++;
+          
           const aircraft = {
             icao24: icao24,
             callsign: (callsign || 'UNKNOWN').trim(),
@@ -295,7 +456,10 @@
           const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
           aircraft.distance = dist;
           
-          // Determine traffic type (inbound, outbound, crossing)
+          // Skip aircraft too far away to reduce processing
+          if (dist > sectorRadius * 2) continue;
+          
+          // Determine traffic type
           const bearingToFacility = calculateBearing(latitude, longitude, facility.pos[0], facility.pos[1]);
           const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], latitude, longitude);
           
@@ -319,11 +483,11 @@
           // Color code by traffic type
           let triangleColor;
           if (aircraft.trafficType === 'inbound') {
-            triangleColor = '#4caf50'; // Green
+            triangleColor = '#4caf50';
           } else if (aircraft.trafficType === 'outbound') {
-            triangleColor = '#f44336'; // Red
+            triangleColor = '#f44336';
           } else {
-            triangleColor = '#ff9800'; // Orange
+            triangleColor = '#ff9800';
           }
           
           const arrowIcon = L.divIcon({
@@ -347,33 +511,14 @@
           
           trafficMarkers.push(marker);
         }
-      });
+      }
       
-      // Add recently seen aircraft that might not be in current update
-      const staleTimeout = 90000; // 90 seconds
+      console.log('Processed', processedCount, 'aircraft from', states.length, 'total states');
+      
+      // Clean up stale aircraft (simplified)
+      const staleTimeout = 90000;
       lastSeenAircraft.forEach((aircraft, icao24) => {
-        if (currentTime - aircraft.lastSeen < staleTimeout) {
-          const inCurrentBatch = liveTraffic.find(ac => ac.icao24 === icao24);
-          if (!inCurrentBatch) {
-            // Aircraft still valid but not in this update, keep it
-            liveTraffic.push(aircraft);
-            
-            const arrowIcon = L.divIcon({
-              html: '<div style="transform:rotate(' + aircraft.heading + 'deg);color:#888;font-size:24px;text-shadow:0 0 3px #000;">▲</div>',
-              className: '',
-              iconSize: [24, 24],
-              iconAnchor: [12, 12]
-            });
-            
-            const marker = L.marker([aircraft.lat, aircraft.lon], {
-              icon: arrowIcon,
-              opacity: 0.6
-            }).addTo(map);
-            
-            trafficMarkers.push(marker);
-          }
-        } else {
-          // Too old, remove from cache
+        if (currentTime - aircraft.lastSeen > staleTimeout) {
           lastSeenAircraft.delete(icao24);
         }
       });
@@ -437,7 +582,8 @@
         }
         
         const arrowIcon = L.divIcon({
-          html: '<div style="transform:rotate(' + ac.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>',
+          html: '<div style="transform:rotate(' + ac.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>' +
+                '<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:' + triangleColor + ';padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">' + aircraft.callsign + '</div>',
           className: '',
           iconSize: [24, 24],
           iconAnchor: [12, 12]
@@ -592,6 +738,122 @@
                 Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
       let bearing = Math.atan2(y, x) * 180 / Math.PI;
       return (bearing + 360) % 360;
+    }
+    
+    function detectConflicts() {
+      const alerts = [];
+      const facility = facilities[currentFacility];
+      const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
+      
+      // Check every pair of aircraft for potential conflicts
+      for (let i = 0; i < activeTraffic.length; i++) {
+        for (let j = i + 1; j < activeTraffic.length; j++) {
+          const ac1 = activeTraffic[i];
+          const ac2 = activeTraffic[j];
+          
+          // Predict future positions (1-10 minutes ahead)
+          for (let minutes = 1; minutes <= 10; minutes++) {
+            const pos1 = predictPosition(ac1, minutes);
+            const pos2 = predictPosition(ac2, minutes);
+            
+            // Calculate distance between predicted positions
+            const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+            
+            // Calculate altitude separation
+            const altSeparation = Math.abs(pos1.alt - pos2.alt);
+            
+            // Conflict criteria: <5nm lateral AND <1000ft vertical
+            if (futureDistance < 5 && altSeparation < 1000) {
+              // Check if we already have an alert for this pair
+              const existingAlert = alerts.find(a => 
+                (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
+                (a.aircraft1 === ac2.callsign && a.aircraft2 === ac1.callsign)
+              );
+              
+              if (!existingAlert) {
+                let severity;
+                if (minutes <= 3) {
+                  severity = 'critical';
+                } else if (minutes <= 5) {
+                  severity = 'warning';
+                } else {
+                  severity = 'caution';
+                }
+                
+                alerts.push({
+                  aircraft1: ac1.callsign,
+                  aircraft2: ac2.callsign,
+                  alt1: ac1.altitude,
+                  alt2: ac2.altitude,
+                  timeToConflict: minutes,
+                  predictedDistance: futureDistance,
+                  altSeparation: altSeparation,
+                  severity: severity
+                });
+              }
+              
+              break; // Found conflict for this pair, move to next
+            }
+          }
+        }
+      }
+      
+      displayAlerts(alerts);
+    }
+    
+    function predictPosition(aircraft, minutes) {
+      // Calculate future position based on current heading and speed
+      const distanceNM = (aircraft.speed / 60) * minutes;
+      const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
+      
+      return {
+        lat: newPos[0],
+        lon: newPos[1],
+        alt: aircraft.altitude // Simplified: assume constant altitude
+      };
+    }
+    
+    function displayAlerts(alerts) {
+      const alertsList = document.getElementById('alerts-list');
+      
+      // Count by severity
+      const critical = alerts.filter(a => a.severity === 'critical').length;
+      const warning = alerts.filter(a => a.severity === 'warning').length;
+      const caution = alerts.filter(a => a.severity === 'caution').length;
+      
+      document.getElementById('critical-count').textContent = critical;
+      document.getElementById('warning-count').textContent = warning;
+      document.getElementById('caution-count').textContent = caution;
+      
+      if (alerts.length === 0) {
+        alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
+        return;
+      }
+      
+      // Sort by time to conflict (most urgent first)
+      alerts.sort((a, b) => a.timeToConflict - b.timeToConflict);
+      
+      let html = '';
+      alerts.forEach(alert => {
+        html += '<div class="alert-item ' + alert.severity + '">';
+        html += '<div class="alert-header">';
+        html += '<span class="alert-severity ' + alert.severity + '">' + alert.severity.toUpperCase() + '</span>';
+        html += '<span class="alert-time">⏱️ ' + alert.timeToConflict + ' min</span>';
+        html += '</div>';
+        html += '<div style="margin:8px 0;">';
+        html += '<span class="alert-aircraft">' + alert.aircraft1 + '</span>';
+        html += ' <span style="color:#666;">↔</span> ';
+        html += '<span class="alert-aircraft">' + alert.aircraft2 + '</span>';
+        html += '</div>';
+        html += '<div class="alert-details">';
+        html += '📏 Predicted separation: ' + alert.predictedDistance.toFixed(1) + ' nm<br>';
+        html += '📊 Altitude diff: ' + alert.altSeparation.toLocaleString() + ' ft<br>';
+        html += '✈️ Alt 1: ' + alert.alt1.toLocaleString() + ' ft | Alt 2: ' + alert.alt2.toLocaleString() + ' ft';
+        html += '</div>';
+        html += '</div>';
+      });
+      
+      alertsList.innerHTML = html;
     }
   </script>
 </body>
