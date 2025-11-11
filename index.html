@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ATC Sector Management</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * {box-sizing:border-box;}
+    html, body {margin:0;padding:0;height:100%;font-family:'Segoe UI', Arial, sans-serif;background:#0a0a14;color:#fff;}
+    
+    #container {
+      display:grid;
+      grid-template-columns:350px 1fr 350px;
+      grid-template-rows:60px 1fr;
+      height:100vh;
+      gap:0;
+    }
+    
+    #header {
+      grid-column:1 / -1;
+      background:#1a1a2e;
+      border-bottom:2px solid #00acc1;
+      padding:0 30px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    
+    #header h1 {
+      margin:0;
+      font-size:22px;
+      color:#00acc1;
+      font-weight:700;
+    }
+    
+    #facility-select select {
+      padding:10px;
+      font-size:14px;
+      background:#0f0f23;
+      border:2px solid #00acc1;
+      border-radius:6px;
+      color:#fff;
+    }
+    
+    #map-container {
+      grid-column:2;
+      grid-row:2;
+      position:relative;
+    }
+    
+    #map {
+      width:100%;
+      height:100%;
+    }
+    
+    #left-panel {
+      grid-column:1;
+      grid-row:2;
+      background:#0f0f23;
+      border-right:2px solid #00acc1;
+      overflow-y:auto;
+      padding:20px;
+    }
+    
+    #right-panel {
+      grid-column:3;
+      grid-row:2;
+      background:#0f0f23;
+      border-left:2px solid #00acc1;
+      overflow-y:auto;
+      padding:20px;
+    }
+    
+    .panel-section {
+      margin-bottom:20px;
+      background:#1a1a2e;
+      border-radius:8px;
+      padding:15px;
+    }
+    
+    .panel-header {
+      font-size:14px;
+      font-weight:700;
+      color:#00acc1;
+      margin-bottom:10px;
+    }
+    
+    .traffic-item {
+      background:#0f0f23;
+      padding:10px;
+      margin:6px 0;
+      border-radius:6px;
+      border-left:4px solid #00acc1;
+      cursor:pointer;
+      font-size:12px;
+    }
+    
+    .traffic-item:hover {
+      background:#1a1a2e;
+    }
+    
+    .traffic-item.inbound-item {
+      border-left-color:#4caf50;
+    }
+    
+    .traffic-item.outbound-item {
+      border-left-color:#f44336;
+    }
+    
+    .traffic-item.crossing-item {
+      border-left-color:#ff9800;
+    }
+    
+    .traffic-callsign {
+      font-size:14px;
+      font-weight:700;
+      color:#00acc1;
+    }
+    
+    .traffic-details {
+      font-size:12px;
+      color:#888;
+      margin-top:5px;
+    }
+    
+    .empty-state {
+      text-align:center;
+      padding:20px;
+      color:#666;
+      font-size:13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <h1>⚡ ATC SECTOR MANAGEMENT</h1>
+      <div id="facility-select">
+        <select id="airport" onchange="changeFacility()">
+          <option value="KSFO">KSFO - San Francisco</option>
+          <option value="KLAX">KLAX - Los Angeles</option>
+          <option value="KSJC">KSJC - San Jose</option>
+        </select>
+      </div>
+    </div>
+    
+    <div id="left-panel">
+      <div class="panel-section">
+        <div class="panel-header">🎯 Active in Sector</div>
+        
+        <div style="margin-top:15px;">
+          <div style="font-size:12px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
+          <div id="active-inbound"></div>
+        </div>
+        
+        <div style="margin-top:15px;">
+          <div style="font-size:12px;font-weight:700;color:#f44336;margin-bottom:8px;">⬆️ OUTBOUND</div>
+          <div id="active-outbound"></div>
+        </div>
+        
+        <div style="margin-top:15px;">
+          <div style="font-size:12px;font-weight:700;color:#ff9800;margin-bottom:8px;">↔️ CROSSING</div>
+          <div id="active-crossing"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+    
+    <div id="right-panel">
+      <div class="panel-section">
+        <div class="panel-header">📡 Inbound Traffic</div>
+        <div id="inbound-traffic"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map, sectorCircle, trafficMarkers = [], liveTraffic = [];
+    let currentFacility = 'KSFO';
+    let sectorRadius = 50;
+    let lastSeenAircraft = new Map(); // Persist aircraft between updates
+    
+    const facilities = {
+      KSFO: {pos: [37.6213, -122.3789], radius: 50},
+      KLAX: {pos: [33.9425, -118.4081], radius: 60},
+      KSJC: {pos: [37.3639, -121.9289], radius: 30}
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      map = L.map('map').setView(facilities[currentFacility].pos, 9);
+      
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap, © CARTO'
+      }).addTo(map);
+
+      drawSectorBoundary();
+      loadLiveTraffic();
+      setInterval(loadLiveTraffic, 30000);
+    });
+
+    function changeFacility() {
+      currentFacility = document.getElementById('airport').value;
+      const facility = facilities[currentFacility];
+      sectorRadius = facility.radius;
+      map.setView(facility.pos, 9);
+      drawSectorBoundary();
+      updateTrafficDisplay();
+    }
+
+    function drawSectorBoundary() {
+      if (sectorCircle) map.removeLayer(sectorCircle);
+      
+      const facility = facilities[currentFacility];
+      sectorCircle = L.circle(facility.pos, {
+        radius: sectorRadius * 1852,
+        color: '#00acc1',
+        fillColor: '#00acc1',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '10, 10'
+      }).addTo(map);
+      
+      L.marker(facility.pos, {
+        icon: L.divIcon({
+          html: '<div style="background:#00acc1;color:#000;padding:5px 10px;border-radius:5px;font-weight:700;">' + currentFacility + '</div>',
+          className: ''
+        })
+      }).addTo(map);
+    }
+
+    async function loadLiveTraffic() {
+      trafficMarkers.forEach(m => map.removeLayer(m));
+      trafficMarkers = [];
+      liveTraffic = [];
+
+      try {
+        const facility = facilities[currentFacility];
+        const bounds = {
+          lamin: facility.pos[0] - 3.0,
+          lomin: facility.pos[1] - 3.0,
+          lamax: facility.pos[0] + 3.0,
+          lomax: facility.pos[1] + 3.0
+        };
+        
+        const url = 'https://opensky-network.org/api/states/all?lamin=' + bounds.lamin + '&lomin=' + bounds.lomin + '&lamax=' + bounds.lamax + '&lomax=' + bounds.lomax;
+        const response = await fetch(url);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.states) {
+            processTraffic(data.states);
+            updateTrafficDisplay();
+            return;
+          }
+        }
+        loadFallbackTraffic();
+      } catch (error) {
+        console.error('Traffic load error:', error);
+        loadFallbackTraffic();
+      }
+      
+      updateTrafficDisplay();
+    }
+
+    function processTraffic(states) {
+      const facility = facilities[currentFacility];
+      const currentTime = Date.now();
+      
+      states.forEach(state => {
+        const longitude = state[5];
+        const latitude = state[6];
+        const baro_altitude = state[7];
+        const on_ground = state[8];
+        const velocity = state[9];
+        const true_track = state[10];
+        const callsign = state[1];
+        const icao24 = state[0];
+        
+        if (latitude && longitude && !on_ground && baro_altitude) {
+          const aircraft = {
+            icao24: icao24,
+            callsign: (callsign || 'UNKNOWN').trim(),
+            lat: latitude,
+            lon: longitude,
+            altitude: Math.round(baro_altitude * 3.28084),
+            speed: velocity ? Math.round(velocity * 1.94384) : 0,
+            heading: true_track || 0,
+            lastSeen: currentTime
+          };
+          
+          const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
+          aircraft.distance = dist;
+          
+          // Determine traffic type (inbound, outbound, crossing)
+          const bearingToFacility = calculateBearing(latitude, longitude, facility.pos[0], facility.pos[1]);
+          const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], latitude, longitude);
+          
+          const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+          const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+          
+          const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+          const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+          
+          if (normalizedToFacility < 45) {
+            aircraft.trafficType = 'inbound';
+          } else if (normalizedFromFacility < 45) {
+            aircraft.trafficType = 'outbound';
+          } else {
+            aircraft.trafficType = 'crossing';
+          }
+          
+          liveTraffic.push(aircraft);
+          lastSeenAircraft.set(icao24, aircraft);
+          
+          // Color code by traffic type
+          let triangleColor;
+          if (aircraft.trafficType === 'inbound') {
+            triangleColor = '#4caf50'; // Green
+          } else if (aircraft.trafficType === 'outbound') {
+            triangleColor = '#f44336'; // Red
+          } else {
+            triangleColor = '#ff9800'; // Orange
+          }
+          
+          const arrowIcon = L.divIcon({
+            html: '<div style="transform:rotate(' + aircraft.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>' +
+                  '<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:' + triangleColor + ';padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">' + aircraft.callsign + '</div>',
+            className: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
+          
+          const marker = L.marker([latitude, longitude], {
+            icon: arrowIcon
+          }).addTo(map).bindPopup(
+            '<b>' + aircraft.callsign + '</b><br>' +
+            'Type: ' + aircraft.trafficType.toUpperCase() + '<br>' +
+            'Alt: ' + aircraft.altitude.toLocaleString() + ' ft<br>' +
+            'Speed: ' + aircraft.speed + ' kts<br>' +
+            'Heading: ' + Math.round(aircraft.heading) + '°<br>' +
+            'Distance: ' + dist.toFixed(1) + ' nm'
+          );
+          
+          trafficMarkers.push(marker);
+        }
+      });
+      
+      // Add recently seen aircraft that might not be in current update
+      const staleTimeout = 90000; // 90 seconds
+      lastSeenAircraft.forEach((aircraft, icao24) => {
+        if (currentTime - aircraft.lastSeen < staleTimeout) {
+          const inCurrentBatch = liveTraffic.find(ac => ac.icao24 === icao24);
+          if (!inCurrentBatch) {
+            // Aircraft still valid but not in this update, keep it
+            liveTraffic.push(aircraft);
+            
+            const arrowIcon = L.divIcon({
+              html: '<div style="transform:rotate(' + aircraft.heading + 'deg);color:#888;font-size:24px;text-shadow:0 0 3px #000;">▲</div>',
+              className: '',
+              iconSize: [24, 24],
+              iconAnchor: [12, 12]
+            });
+            
+            const marker = L.marker([aircraft.lat, aircraft.lon], {
+              icon: arrowIcon,
+              opacity: 0.6
+            }).addTo(map);
+            
+            trafficMarkers.push(marker);
+          }
+        } else {
+          // Too old, remove from cache
+          lastSeenAircraft.delete(icao24);
+        }
+      });
+    }
+
+    function loadFallbackTraffic() {
+      const facility = facilities[currentFacility];
+      const fallback = [
+        { callsign: 'UAL123', offset: [0.05, -0.05], altitude: 8000, speed: 250, heading: 180 },
+        { callsign: 'SWA456', offset: [-0.10, 0.05], altitude: 12000, speed: 280, heading: 270 },
+        { callsign: 'AAL789', offset: [0.15, 0.10], altitude: 15000, speed: 320, heading: 45 }
+      ];
+      
+      fallback.forEach(ac => {
+        const lat = facility.pos[0] + ac.offset[0];
+        const lon = facility.pos[1] + ac.offset[1];
+        const dist = calculateDistance(facility.pos[0], facility.pos[1], lat, lon);
+        
+        // Determine traffic type
+        const bearingToFacility = calculateBearing(lat, lon, facility.pos[0], facility.pos[1]);
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
+        
+        const headingToFacilityDiff = Math.abs(ac.heading - bearingToFacility);
+        const headingFromFacilityDiff = Math.abs(ac.heading - bearingFromFacility);
+        
+        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+        
+        let trafficType;
+        if (normalizedToFacility < 45) {
+          trafficType = 'inbound';
+        } else if (normalizedFromFacility < 45) {
+          trafficType = 'outbound';
+        } else {
+          trafficType = 'crossing';
+        }
+        
+        const aircraft = {
+          icao24: 'SIM' + ac.callsign,
+          callsign: ac.callsign,
+          lat: lat,
+          lon: lon,
+          altitude: ac.altitude,
+          speed: ac.speed,
+          heading: ac.heading,
+          distance: dist,
+          trafficType: trafficType,
+          lastSeen: Date.now()
+        };
+        
+        liveTraffic.push(aircraft);
+        
+        // Color code by traffic type
+        let triangleColor;
+        if (aircraft.trafficType === 'inbound') {
+          triangleColor = '#4caf50'; // Green
+        } else if (aircraft.trafficType === 'outbound') {
+          triangleColor = '#f44336'; // Red
+        } else {
+          triangleColor = '#ff9800'; // Orange
+        }
+        
+        const arrowIcon = L.divIcon({
+          html: '<div style="transform:rotate(' + ac.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>',
+          className: '',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        
+        const marker = L.marker([lat, lon], {icon: arrowIcon}).addTo(map);
+        trafficMarkers.push(marker);
+      });
+    }
+
+    function updateTrafficDisplay() {
+      // Safety check - make sure elements exist
+      const inboundContainer = document.getElementById('active-inbound');
+      const outboundContainer = document.getElementById('active-outbound');
+      const crossingContainer = document.getElementById('active-crossing');
+      const inboundPredictContainer = document.getElementById('inbound-traffic');
+      
+      if (!inboundContainer || !outboundContainer || !crossingContainer || !inboundPredictContainer) {
+        console.error('Display containers not found in DOM');
+        return;
+      }
+      
+      const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
+      
+      console.log('Total traffic:', liveTraffic.length, 'Active in sector:', activeTraffic.length);
+      
+      // Separate by traffic type
+      const inbound = activeTraffic.filter(ac => ac.trafficType === 'inbound');
+      const outbound = activeTraffic.filter(ac => ac.trafficType === 'outbound');
+      const crossing = activeTraffic.filter(ac => ac.trafficType === 'crossing');
+      
+      console.log('Inbound:', inbound.length, 'Outbound:', outbound.length, 'Crossing:', crossing.length);
+      
+      // Sort each by distance (closest first)
+      inbound.sort((a, b) => a.distance - b.distance);
+      outbound.sort((a, b) => a.distance - b.distance);
+      crossing.sort((a, b) => a.distance - b.distance);
+      
+      // Display inbound
+      if (inbound.length === 0) {
+        inboundContainer.innerHTML = '<div class="empty-state">No inbound aircraft</div>';
+      } else {
+        let html = '';
+        inbound.forEach(ac => {
+          html += '<div class="traffic-item inbound-item">';
+          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
+          html += '<div class="traffic-details">';
+          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
+          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
+          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
+          html += '</div>';
+          html += '</div>';
+        });
+        inboundContainer.innerHTML = html;
+      }
+      
+      // Display outbound
+      if (outbound.length === 0) {
+        outboundContainer.innerHTML = '<div class="empty-state">No outbound aircraft</div>';
+      } else {
+        let html = '';
+        outbound.forEach(ac => {
+          html += '<div class="traffic-item outbound-item">';
+          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
+          html += '<div class="traffic-details">';
+          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
+          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
+          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
+          html += '</div>';
+          html += '</div>';
+        });
+        outboundContainer.innerHTML = html;
+      }
+      
+      // Display crossing
+      if (crossing.length === 0) {
+        crossingContainer.innerHTML = '<div class="empty-state">No crossing traffic</div>';
+      } else {
+        let html = '';
+        crossing.forEach(ac => {
+          html += '<div class="traffic-item crossing-item">';
+          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
+          html += '<div class="traffic-details">';
+          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
+          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
+          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
+          html += '</div>';
+          html += '</div>';
+        });
+        crossingContainer.innerHTML = html;
+      }
+      
+      // Inbound predictions
+      const inboundTraffic = predictInbound();
+      if (inboundTraffic.length === 0) {
+        inboundPredictContainer.innerHTML = '<div class="empty-state">No predicted inbound</div>';
+      } else {
+        let html = '';
+        inboundTraffic.forEach(ac => {
+          html += '<div class="traffic-item">';
+          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
+          html += '<div class="traffic-details">';
+          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
+          html += 'ETA: ' + ac.eta + ' min | ';
+          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
+          html += '</div>';
+          html += '</div>';
+        });
+        inboundPredictContainer.innerHTML = html;
+      }
+    }
+
+    function predictInbound() {
+      const facility = facilities[currentFacility];
+      const inbound = [];
+      
+      liveTraffic.forEach(ac => {
+        if (ac.distance > sectorRadius && ac.distance < sectorRadius * 2) {
+          const bearingToFacility = calculateBearing(ac.lat, ac.lon, facility.pos[0], facility.pos[1]);
+          const headingDiff = Math.abs(ac.heading - bearingToFacility);
+          const normalizedDiff = headingDiff > 180 ? 360 - headingDiff : headingDiff;
+          
+          if (normalizedDiff < 60) {
+            const distToEnter = ac.distance - sectorRadius;
+            const eta = Math.round((distToEnter / ac.speed) * 60);
+            
+            if (eta <= 10) {
+              inbound.push({...ac, eta: eta});
+            }
+          }
+        }
+      });
+      
+      return inbound.sort((a, b) => a.eta - b.eta);
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3440.065;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+      let bearing = Math.atan2(y, x) * 180 / Math.PI;
+      return (bearing + 360) % 360;
+    }
+  </script>
+</body>
+</html>
