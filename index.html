@@ -245,12 +245,42 @@
       text-transform:uppercase;
       margin-top:3px;
     }
+    
+    .status-indicator {
+      display:inline-block;
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      margin-left:10px;
+      animation:pulse 2s infinite;
+    }
+    
+    .status-indicator.live {
+      background:#4caf50;
+    }
+    
+    .status-indicator.fallback {
+      background:#ff9800;
+    }
+    
+    .status-indicator.error {
+      background:#f44336;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
   </style>
 </head>
 <body>
   <div id="container">
     <div id="header">
-      <h1>⚡ ATC SECTOR MANAGEMENT</h1>
+      <div>
+        <h1>⚡ ATC SECTOR MANAGEMENT</h1>
+        <span id="status-text" style="font-size:12px;color:#888;">Initializing...</span>
+        <span id="status-indicator" class="status-indicator"></span>
+      </div>
       <div id="facility-select">
         <select id="airport" onchange="changeFacility()">
           <option value="KSFO">KSFO - San Francisco</option>
@@ -319,7 +349,10 @@
     let map, sectorCircle, trafficMarkers = [], liveTraffic = [];
     let currentFacility = 'KSFO';
     let sectorRadius = 50;
-    let lastSeenAircraft = new Map(); // Persist aircraft between updates
+    let lastSeenAircraft = new Map();
+    let apiFailCount = 0;
+    let useFallback = false;
+    let lastSuccessfulFetch = null;
     
     const facilities = {
       KSFO: {pos: [37.6213, -122.3789], radius: 50},
@@ -336,9 +369,21 @@
 
       drawSectorBoundary();
       loadLiveTraffic();
-      setInterval(loadLiveTraffic, 30000);
-      setInterval(detectConflicts, 5000); // Check for conflicts every 5 seconds
+      
+      // Use longer interval to avoid rate limiting
+      setInterval(loadLiveTraffic, 45000); // 45 seconds instead of 30
+      setInterval(detectConflicts, 5000);
+      
+      updateStatus('live', 'System Online');
     });
+
+    function updateStatus(type, message) {
+      const statusText = document.getElementById('status-text');
+      const statusIndicator = document.getElementById('status-indicator');
+      
+      statusText.textContent = message;
+      statusIndicator.className = 'status-indicator ' + type;
+    }
 
     function changeFacility() {
       currentFacility = document.getElementById('airport').value;
@@ -375,23 +420,42 @@
       trafficMarkers = [];
       liveTraffic = [];
 
+      // If we've had too many failures or are in fallback mode, use simulation
+      if (useFallback || apiFailCount > 3) {
+        console.log('Using fallback mode');
+        updateStatus('fallback', 'Using Simulated Data');
+        loadFallbackTraffic();
+        updateTrafficDisplay();
+        return;
+      }
+
       try {
         const facility = facilities[currentFacility];
         const bounds = {
-          lamin: facility.pos[0] - 3.0,
-          lomin: facility.pos[1] - 3.0,
-          lamax: facility.pos[0] + 3.0,
-          lomax: facility.pos[1] + 3.0
+          lamin: facility.pos[0] - 1.5,  // Reduced search area
+          lomin: facility.pos[1] - 1.5,
+          lamax: facility.pos[0] + 1.5,
+          lomax: facility.pos[1] + 1.5
         };
         
-        const url = 'https://opensky-network.org/api/states/all?lamin=' + bounds.lamin + '&lomin=' + bounds.lomin + '&lamax=' + bounds.lamax + '&lomax=' + bounds.lomax;
-        const response = await fetch(url);
+        const url = `https://opensky-network.org/api/states/all?lamin=${bounds.lamin}&lomin=${bounds.lomin}&lamax=${bounds.lamax}&lomax=${bounds.lomax}`;
+        
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
         
         console.log('OpenSky response status:', response.status);
         
         if (response.status === 429) {
-          console.warn('Rate limited by OpenSky - using fallback');
-          document.getElementById('header').style.borderBottom = '2px solid #ff9800';
+          console.warn('Rate limited - switching to fallback mode');
+          apiFailCount++;
+          if (apiFailCount >= 3) {
+            useFallback = true;
+            updateStatus('fallback', 'Rate Limited - Using Simulation');
+          }
           loadFallbackTraffic();
           updateTrafficDisplay();
           return;
@@ -399,21 +463,34 @@
         
         if (response.ok) {
           const data = await response.json();
-          console.log('OpenSky data received:', data.states ? data.states.length : 0, 'aircraft');
+          console.log('OpenSky data:', data.states ? data.states.length : 0, 'aircraft');
+          
           if (data.states && data.states.length > 0) {
-            document.getElementById('header').style.borderBottom = '2px solid #00acc1';
+            apiFailCount = 0; // Reset fail count on success
+            lastSuccessfulFetch = Date.now();
+            updateStatus('live', `Live Data - ${data.states.length} aircraft`);
             processTraffic(data.states);
             updateTrafficDisplay();
             return;
           }
         }
         
-        console.warn('OpenSky returned no data - using fallback');
-        document.getElementById('header').style.borderBottom = '2px solid #ff9800';
+        // If we get here, API didn't give us data
+        console.warn('No data from API - using fallback');
+        apiFailCount++;
         loadFallbackTraffic();
+        updateStatus('fallback', 'No Live Data - Using Simulation');
+        
       } catch (error) {
         console.error('Traffic load error:', error);
-        document.getElementById('header').style.borderBottom = '2px solid #f44336';
+        apiFailCount++;
+        
+        if (error.name === 'AbortError') {
+          updateStatus('error', 'Request Timeout - Using Simulation');
+        } else {
+          updateStatus('error', 'Connection Error - Using Simulation');
+        }
+        
         loadFallbackTraffic();
       }
       
@@ -423,12 +500,10 @@
     function processTraffic(states) {
       const facility = facilities[currentFacility];
       const currentTime = Date.now();
-      
-      // Process in batches for better performance
-      const batchSize = 50;
+      const maxAircraft = 50; // Limit processing
       let processedCount = 0;
       
-      for (let i = 0; i < states.length && processedCount < 100; i++) {
+      for (let i = 0; i < states.length && processedCount < maxAircraft; i++) {
         const state = states[i];
         const longitude = state[5];
         const latitude = state[6];
@@ -439,25 +514,25 @@
         const callsign = state[1];
         const icao24 = state[0];
         
-        if (latitude && longitude && !on_ground && baro_altitude) {
+        if (latitude && longitude && !on_ground && baro_altitude && velocity) {
+          const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
+          
+          // Only process aircraft within reasonable range
+          if (dist > sectorRadius * 2.5) continue;
+          
           processedCount++;
           
           const aircraft = {
             icao24: icao24,
-            callsign: (callsign || 'UNKNOWN').trim(),
+            callsign: (callsign || 'N/A').trim(),
             lat: latitude,
             lon: longitude,
             altitude: Math.round(baro_altitude * 3.28084),
-            speed: velocity ? Math.round(velocity * 1.94384) : 0,
+            speed: Math.round(velocity * 1.94384),
             heading: true_track || 0,
+            distance: dist,
             lastSeen: currentTime
           };
-          
-          const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
-          aircraft.distance = dist;
-          
-          // Skip aircraft too far away to reduce processing
-          if (dist > sectorRadius * 2) continue;
           
           // Determine traffic type
           const bearingToFacility = calculateBearing(latitude, longitude, facility.pos[0], facility.pos[1]);
@@ -480,43 +555,15 @@
           liveTraffic.push(aircraft);
           lastSeenAircraft.set(icao24, aircraft);
           
-          // Color code by traffic type
-          let triangleColor;
-          if (aircraft.trafficType === 'inbound') {
-            triangleColor = '#4caf50';
-          } else if (aircraft.trafficType === 'outbound') {
-            triangleColor = '#f44336';
-          } else {
-            triangleColor = '#ff9800';
-          }
-          
-          const arrowIcon = L.divIcon({
-            html: '<div style="transform:rotate(' + aircraft.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>' +
-                  '<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:' + triangleColor + ';padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">' + aircraft.callsign + '</div>',
-            className: '',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-          });
-          
-          const marker = L.marker([latitude, longitude], {
-            icon: arrowIcon
-          }).addTo(map).bindPopup(
-            '<b>' + aircraft.callsign + '</b><br>' +
-            'Type: ' + aircraft.trafficType.toUpperCase() + '<br>' +
-            'Alt: ' + aircraft.altitude.toLocaleString() + ' ft<br>' +
-            'Speed: ' + aircraft.speed + ' kts<br>' +
-            'Heading: ' + Math.round(aircraft.heading) + '°<br>' +
-            'Distance: ' + dist.toFixed(1) + ' nm'
-          );
-          
-          trafficMarkers.push(marker);
+          // Add marker
+          addAircraftMarker(aircraft);
         }
       }
       
-      console.log('Processed', processedCount, 'aircraft from', states.length, 'total states');
+      console.log('Processed', processedCount, 'aircraft');
       
-      // Clean up stale aircraft (simplified)
-      const staleTimeout = 90000;
+      // Clean up stale aircraft
+      const staleTimeout = 120000;
       lastSeenAircraft.forEach((aircraft, icao24) => {
         if (currentTime - aircraft.lastSeen > staleTimeout) {
           lastSeenAircraft.delete(icao24);
@@ -524,12 +571,49 @@
       });
     }
 
+    function addAircraftMarker(aircraft) {
+      let triangleColor;
+      if (aircraft.trafficType === 'inbound') {
+        triangleColor = '#4caf50';
+      } else if (aircraft.trafficType === 'outbound') {
+        triangleColor = '#f44336';
+      } else {
+        triangleColor = '#ff9800';
+      }
+      
+      const arrowIcon = L.divIcon({
+        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:24px;text-shadow:0 0 3px #000;">▲</div>` +
+              `<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:${triangleColor};padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">${aircraft.callsign}</div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      
+      const marker = L.marker([aircraft.lat, aircraft.lon], {
+        icon: arrowIcon
+      }).addTo(map).bindPopup(
+        `<b>${aircraft.callsign}</b><br>` +
+        `Type: ${aircraft.trafficType.toUpperCase()}<br>` +
+        `Alt: ${aircraft.altitude.toLocaleString()} ft<br>` +
+        `Speed: ${aircraft.speed} kts<br>` +
+        `Heading: ${Math.round(aircraft.heading)}°<br>` +
+        `Distance: ${aircraft.distance.toFixed(1)} nm`
+      );
+      
+      trafficMarkers.push(marker);
+    }
+
     function loadFallbackTraffic() {
       const facility = facilities[currentFacility];
+      
+      // Generate more realistic fallback traffic
       const fallback = [
-        { callsign: 'UAL123', offset: [0.05, -0.05], altitude: 8000, speed: 250, heading: 180 },
-        { callsign: 'SWA456', offset: [-0.10, 0.05], altitude: 12000, speed: 280, heading: 270 },
-        { callsign: 'AAL789', offset: [0.15, 0.10], altitude: 15000, speed: 320, heading: 45 }
+        { callsign: 'UAL123', offset: [0.15, -0.10], altitude: 8000, speed: 250, heading: 180 },
+        { callsign: 'SWA456', offset: [-0.20, 0.08], altitude: 12000, speed: 280, heading: 270 },
+        { callsign: 'AAL789', offset: [0.25, 0.15], altitude: 15000, speed: 320, heading: 45 },
+        { callsign: 'DAL234', offset: [-0.10, -0.15], altitude: 10000, speed: 260, heading: 135 },
+        { callsign: 'JBU567', offset: [0.05, 0.20], altitude: 18000, speed: 340, heading: 315 },
+        { callsign: 'N123AB', offset: [-0.15, 0.12], altitude: 5000, speed: 180, heading: 90 }
       ];
       
       fallback.forEach(ac => {
@@ -537,7 +621,6 @@
         const lon = facility.pos[1] + ac.offset[1];
         const dist = calculateDistance(facility.pos[0], facility.pos[1], lat, lon);
         
-        // Determine traffic type
         const bearingToFacility = calculateBearing(lat, lon, facility.pos[0], facility.pos[1]);
         const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
         
@@ -570,130 +653,87 @@
         };
         
         liveTraffic.push(aircraft);
-        
-        // Color code by traffic type
-        let triangleColor;
-        if (aircraft.trafficType === 'inbound') {
-          triangleColor = '#4caf50'; // Green
-        } else if (aircraft.trafficType === 'outbound') {
-          triangleColor = '#f44336'; // Red
-        } else {
-          triangleColor = '#ff9800'; // Orange
-        }
-        
-        const arrowIcon = L.divIcon({
-          html: '<div style="transform:rotate(' + ac.heading + 'deg);color:' + triangleColor + ';font-size:24px;text-shadow:0 0 3px #000;">▲</div>' +
-                '<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:' + triangleColor + ';padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">' + aircraft.callsign + '</div>',
-          className: '',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        });
-        
-        const marker = L.marker([lat, lon], {icon: arrowIcon}).addTo(map);
-        trafficMarkers.push(marker);
+        addAircraftMarker(aircraft);
       });
     }
 
     function updateTrafficDisplay() {
-      // Safety check - make sure elements exist
       const inboundContainer = document.getElementById('active-inbound');
       const outboundContainer = document.getElementById('active-outbound');
       const crossingContainer = document.getElementById('active-crossing');
       const inboundPredictContainer = document.getElementById('inbound-traffic');
       
       if (!inboundContainer || !outboundContainer || !crossingContainer || !inboundPredictContainer) {
-        console.error('Display containers not found in DOM');
+        console.error('Display containers not found');
         return;
       }
       
       const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
       
-      console.log('Total traffic:', liveTraffic.length, 'Active in sector:', activeTraffic.length);
-      
-      // Separate by traffic type
       const inbound = activeTraffic.filter(ac => ac.trafficType === 'inbound');
       const outbound = activeTraffic.filter(ac => ac.trafficType === 'outbound');
       const crossing = activeTraffic.filter(ac => ac.trafficType === 'crossing');
       
-      console.log('Inbound:', inbound.length, 'Outbound:', outbound.length, 'Crossing:', crossing.length);
-      
-      // Sort each by distance (closest first)
       inbound.sort((a, b) => a.distance - b.distance);
       outbound.sort((a, b) => a.distance - b.distance);
       crossing.sort((a, b) => a.distance - b.distance);
       
       // Display inbound
-      if (inbound.length === 0) {
-        inboundContainer.innerHTML = '<div class="empty-state">No inbound aircraft</div>';
-      } else {
-        let html = '';
-        inbound.forEach(ac => {
-          html += '<div class="traffic-item inbound-item">';
-          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
-          html += '<div class="traffic-details">';
-          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
-          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
-          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
-          html += '</div>';
-          html += '</div>';
-        });
-        inboundContainer.innerHTML = html;
-      }
+      inboundContainer.innerHTML = inbound.length === 0 ? 
+        '<div class="empty-state">No inbound aircraft</div>' :
+        inbound.map(ac => `
+          <div class="traffic-item inbound-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              Alt: ${ac.altitude.toLocaleString()} ft | 
+              Hdg: ${Math.round(ac.heading)}° | 
+              Dist: ${ac.distance.toFixed(1)} nm
+            </div>
+          </div>
+        `).join('');
       
       // Display outbound
-      if (outbound.length === 0) {
-        outboundContainer.innerHTML = '<div class="empty-state">No outbound aircraft</div>';
-      } else {
-        let html = '';
-        outbound.forEach(ac => {
-          html += '<div class="traffic-item outbound-item">';
-          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
-          html += '<div class="traffic-details">';
-          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
-          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
-          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
-          html += '</div>';
-          html += '</div>';
-        });
-        outboundContainer.innerHTML = html;
-      }
+      outboundContainer.innerHTML = outbound.length === 0 ?
+        '<div class="empty-state">No outbound aircraft</div>' :
+        outbound.map(ac => `
+          <div class="traffic-item outbound-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              Alt: ${ac.altitude.toLocaleString()} ft | 
+              Hdg: ${Math.round(ac.heading)}° | 
+              Dist: ${ac.distance.toFixed(1)} nm
+            </div>
+          </div>
+        `).join('');
       
       // Display crossing
-      if (crossing.length === 0) {
-        crossingContainer.innerHTML = '<div class="empty-state">No crossing traffic</div>';
-      } else {
-        let html = '';
-        crossing.forEach(ac => {
-          html += '<div class="traffic-item crossing-item">';
-          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
-          html += '<div class="traffic-details">';
-          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
-          html += 'Hdg: ' + Math.round(ac.heading) + '° | ';
-          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
-          html += '</div>';
-          html += '</div>';
-        });
-        crossingContainer.innerHTML = html;
-      }
+      crossingContainer.innerHTML = crossing.length === 0 ?
+        '<div class="empty-state">No crossing traffic</div>' :
+        crossing.map(ac => `
+          <div class="traffic-item crossing-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              Alt: ${ac.altitude.toLocaleString()} ft | 
+              Hdg: ${Math.round(ac.heading)}° | 
+              Dist: ${ac.distance.toFixed(1)} nm
+            </div>
+          </div>
+        `).join('');
       
       // Inbound predictions
       const inboundTraffic = predictInbound();
-      if (inboundTraffic.length === 0) {
-        inboundPredictContainer.innerHTML = '<div class="empty-state">No predicted inbound</div>';
-      } else {
-        let html = '';
-        inboundTraffic.forEach(ac => {
-          html += '<div class="traffic-item">';
-          html += '<div class="traffic-callsign">' + ac.callsign + '</div>';
-          html += '<div class="traffic-details">';
-          html += 'Alt: ' + ac.altitude.toLocaleString() + ' ft | ';
-          html += 'ETA: ' + ac.eta + ' min | ';
-          html += 'Dist: ' + ac.distance.toFixed(1) + ' nm';
-          html += '</div>';
-          html += '</div>';
-        });
-        inboundPredictContainer.innerHTML = html;
-      }
+      inboundPredictContainer.innerHTML = inboundTraffic.length === 0 ?
+        '<div class="empty-state">No predicted inbound</div>' :
+        inboundTraffic.map(ac => `
+          <div class="traffic-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              Alt: ${ac.altitude.toLocaleString()} ft | 
+              ETA: ${ac.eta} min | 
+              Dist: ${ac.distance.toFixed(1)} nm
+            </div>
+          </div>
+        `).join('');
     }
 
     function predictInbound() {
@@ -706,7 +746,7 @@
           const headingDiff = Math.abs(ac.heading - bearingToFacility);
           const normalizedDiff = headingDiff > 180 ? 360 - headingDiff : headingDiff;
           
-          if (normalizedDiff < 60) {
+          if (normalizedDiff < 60 && ac.speed > 0) {
             const distToEnter = ac.distance - sectorRadius;
             const eta = Math.round((distToEnter / ac.speed) * 60);
             
@@ -721,7 +761,7 @@
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 3440.065;
+      const R = 3440.065; // Earth radius in nautical miles
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -740,31 +780,56 @@
       return (bearing + 360) % 360;
     }
     
+    // MISSING FUNCTION - Calculate end point given start, bearing, and distance
+    function calculateEndPoint(lat1, lon1, bearing, distanceNM) {
+      const R = 3440.065; // Earth radius in nautical miles
+      const d = distanceNM / R; // Angular distance
+      const brng = bearing * Math.PI / 180; // Convert bearing to radians
+      const lat1Rad = lat1 * Math.PI / 180;
+      const lon1Rad = lon1 * Math.PI / 180;
+      
+      const lat2 = Math.asin(
+        Math.sin(lat1Rad) * Math.cos(d) +
+        Math.cos(lat1Rad) * Math.sin(d) * Math.cos(brng)
+      );
+      
+      const lon2 = lon1Rad + Math.atan2(
+        Math.sin(brng) * Math.sin(d) * Math.cos(lat1Rad),
+        Math.cos(d) - Math.sin(lat1Rad) * Math.sin(lat2)
+      );
+      
+      return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+    }
+    
     function detectConflicts() {
       const alerts = [];
-      const facility = facilities[currentFacility];
       const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
       
-      // Check every pair of aircraft for potential conflicts
+      // Only check conflicts if we have enough aircraft and valid speed data
+      if (activeTraffic.length < 2) {
+        displayAlerts([]);
+        return;
+      }
+      
+      // Check every pair of aircraft
       for (let i = 0; i < activeTraffic.length; i++) {
         for (let j = i + 1; j < activeTraffic.length; j++) {
           const ac1 = activeTraffic[i];
           const ac2 = activeTraffic[j];
+          
+          // Skip if either aircraft has invalid speed
+          if (!ac1.speed || !ac2.speed || ac1.speed < 50 || ac2.speed < 50) continue;
           
           // Predict future positions (1-10 minutes ahead)
           for (let minutes = 1; minutes <= 10; minutes++) {
             const pos1 = predictPosition(ac1, minutes);
             const pos2 = predictPosition(ac2, minutes);
             
-            // Calculate distance between predicted positions
             const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
-            
-            // Calculate altitude separation
             const altSeparation = Math.abs(pos1.alt - pos2.alt);
             
-            // Conflict criteria: <5nm lateral AND <1000ft vertical
+            // Conflict: <5nm lateral AND <1000ft vertical
             if (futureDistance < 5 && altSeparation < 1000) {
-              // Check if we already have an alert for this pair
               const existingAlert = alerts.find(a => 
                 (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
                 (a.aircraft1 === ac2.callsign && a.aircraft2 === ac1.callsign)
@@ -792,7 +857,7 @@
                 });
               }
               
-              break; // Found conflict for this pair, move to next
+              break;
             }
           }
         }
@@ -802,21 +867,27 @@
     }
     
     function predictPosition(aircraft, minutes) {
-      // Calculate future position based on current heading and speed
+      if (!aircraft.speed || aircraft.speed < 50) {
+        return {
+          lat: aircraft.lat,
+          lon: aircraft.lon,
+          alt: aircraft.altitude
+        };
+      }
+      
       const distanceNM = (aircraft.speed / 60) * minutes;
       const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
       
       return {
         lat: newPos[0],
         lon: newPos[1],
-        alt: aircraft.altitude // Simplified: assume constant altitude
+        alt: aircraft.altitude
       };
     }
     
     function displayAlerts(alerts) {
       const alertsList = document.getElementById('alerts-list');
       
-      // Count by severity
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const warning = alerts.filter(a => a.severity === 'warning').length;
       const caution = alerts.filter(a => a.severity === 'caution').length;
@@ -830,30 +901,26 @@
         return;
       }
       
-      // Sort by time to conflict (most urgent first)
       alerts.sort((a, b) => a.timeToConflict - b.timeToConflict);
       
-      let html = '';
-      alerts.forEach(alert => {
-        html += '<div class="alert-item ' + alert.severity + '">';
-        html += '<div class="alert-header">';
-        html += '<span class="alert-severity ' + alert.severity + '">' + alert.severity.toUpperCase() + '</span>';
-        html += '<span class="alert-time">⏱️ ' + alert.timeToConflict + ' min</span>';
-        html += '</div>';
-        html += '<div style="margin:8px 0;">';
-        html += '<span class="alert-aircraft">' + alert.aircraft1 + '</span>';
-        html += ' <span style="color:#666;">↔</span> ';
-        html += '<span class="alert-aircraft">' + alert.aircraft2 + '</span>';
-        html += '</div>';
-        html += '<div class="alert-details">';
-        html += '📏 Predicted separation: ' + alert.predictedDistance.toFixed(1) + ' nm<br>';
-        html += '📊 Altitude diff: ' + alert.altSeparation.toLocaleString() + ' ft<br>';
-        html += '✈️ Alt 1: ' + alert.alt1.toLocaleString() + ' ft | Alt 2: ' + alert.alt2.toLocaleString() + ' ft';
-        html += '</div>';
-        html += '</div>';
-      });
-      
-      alertsList.innerHTML = html;
+      alertsList.innerHTML = alerts.map(alert => `
+        <div class="alert-item ${alert.severity}">
+          <div class="alert-header">
+            <span class="alert-severity ${alert.severity}">${alert.severity.toUpperCase()}</span>
+            <span class="alert-time">⏱️ ${alert.timeToConflict} min</span>
+          </div>
+          <div style="margin:8px 0;">
+            <span class="alert-aircraft">${alert.aircraft1}</span>
+            <span style="color:#666;">↔</span>
+            <span class="alert-aircraft">${alert.aircraft2}</span>
+          </div>
+          <div class="alert-details">
+            📏 Predicted separation: ${alert.predictedDistance.toFixed(1)} nm<br>
+            📊 Altitude diff: ${alert.altSeparation.toLocaleString()} ft<br>
+            ✈️ Alt 1: ${alert.alt1.toLocaleString()} ft | Alt 2: ${alert.alt2.toLocaleString()} ft
+          </div>
+        </div>
+      `).join('');
     }
   </script>
 </body>
