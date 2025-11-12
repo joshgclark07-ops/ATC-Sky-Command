@@ -1012,6 +1012,226 @@
     let conflictHistory = [];
     let safetyScore = 100;
     
+    // Aircraft type classifications (by callsign prefix or pattern)
+    const aircraftTypes = {
+      // Heavy jets - lowest priority to maneuver
+      'heavy': ['UAL', 'DAL', 'AAL', 'SWA', 'JBU', 'ASA', 'FFT', 'SKW'],
+      // Cargo - medium-low priority
+      'cargo': ['FDX', 'UPS'],
+      // Light aircraft - highest priority to maneuver
+      'light': ['N'] // General aviation typically starts with N
+    };
+    
+    function getAircraftCategory(callsign) {
+      const prefix = callsign.substring(0, 3);
+      
+      if (aircraftTypes.heavy.includes(prefix)) return 'heavy';
+      if (aircraftTypes.cargo.includes(prefix)) return 'cargo';
+      if (callsign.startsWith('N')) return 'light';
+      
+      // Default to medium if unknown
+      return 'medium';
+    }
+    
+    function getRelativePosition(fromLat, fromLon, fromHeading, toLat, toLon) {
+      // Calculate bearing from aircraft to target
+      const bearing = calculateBearing(fromLat, fromLon, toLat, toLon);
+      
+      // Calculate relative bearing (where target is relative to aircraft heading)
+      let relativeBearing = bearing - fromHeading;
+      if (relativeBearing < 0) relativeBearing += 360;
+      if (relativeBearing >= 360) relativeBearing -= 360;
+      
+      // Convert to clock position
+      const hour = Math.round(relativeBearing / 30);
+      const clockPos = hour === 0 ? 12 : hour;
+      
+      // Convert to cardinal direction
+      let direction;
+      if (relativeBearing >= 337.5 || relativeBearing < 22.5) direction = '12 o\'clock (ahead)';
+      else if (relativeBearing >= 22.5 && relativeBearing < 67.5) direction = '1-2 o\'clock (right front)';
+      else if (relativeBearing >= 67.5 && relativeBearing < 112.5) direction = '3 o\'clock (right)';
+      else if (relativeBearing >= 112.5 && relativeBearing < 157.5) direction = '4-5 o\'clock (right rear)';
+      else if (relativeBearing >= 157.5 && relativeBearing < 202.5) direction = '6 o\'clock (behind)';
+      else if (relativeBearing >= 202.5 && relativeBearing < 247.5) direction = '7-8 o\'clock (left rear)';
+      else if (relativeBearing >= 247.5 && relativeBearing < 292.5) direction = '9 o\'clock (left)';
+      else direction = '10-11 o\'clock (left front)';
+      
+      return { clockPosition: clockPos, direction: direction, bearing: Math.round(bearing) };
+    }
+    
+    function generateResolutionAdvice(aircraft1, aircraft2, conflict) {
+      const cat1 = getAircraftCategory(aircraft1.callsign);
+      const cat2 = getAircraftCategory(aircraft2.callsign);
+      
+      // Priority order: heavy < cargo < medium < light
+      const priority = { heavy: 1, cargo: 2, medium: 3, light: 4 };
+      
+      let primaryAircraft, secondaryAircraft;
+      
+      // Aircraft with higher priority number should maneuver
+      if (priority[cat1] > priority[cat2]) {
+        primaryAircraft = aircraft1;
+        secondaryAircraft = aircraft2;
+      } else if (priority[cat2] > priority[cat1]) {
+        primaryAircraft = aircraft2;
+        secondaryAircraft = aircraft1;
+      } else {
+        // Same priority - choose based on other factors
+        // Prefer maneuvering the one at higher altitude (easier to descend)
+        if (aircraft1.altitude > aircraft2.altitude) {
+          primaryAircraft = aircraft1;
+          secondaryAircraft = aircraft2;
+        } else {
+          primaryAircraft = aircraft2;
+          secondaryAircraft = aircraft1;
+        }
+      }
+      
+      const altDiff = Math.abs(aircraft1.altitude - aircraft2.altitude);
+      const lateralDist = conflict.predictedDistance;
+      
+      // Determine maneuver type based on situation
+      let maneuver = {};
+      
+      // If altitude difference is small, use altitude separation (easiest)
+      if (altDiff < 1500) {
+        // Determine if we should climb or descend
+        if (primaryAircraft.altitude > secondaryAircraft.altitude) {
+          // Primary is higher - climb to increase separation
+          const climbAmount = Math.max(500, 1500 - altDiff);
+          maneuver = {
+            type: 'altitude',
+            action: 'climb',
+            amount: climbAmount,
+            targetAltitude: primaryAircraft.altitude + climbAmount
+          };
+        } else {
+          // Primary is lower - descend to increase separation
+          const descendAmount = Math.max(500, 1500 - altDiff);
+          maneuver = {
+            type: 'altitude',
+            action: 'descend',
+            amount: descendAmount,
+            targetAltitude: Math.max(5000, primaryAircraft.altitude - descendAmount)
+          };
+        }
+      } else if (lateralDist < 3) {
+        // Close lateral distance - use heading change
+        const relPos = getRelativePosition(
+          primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+          secondaryAircraft.lat, secondaryAircraft.lon
+        );
+        
+        // Turn away from the other aircraft
+        let turnDirection, turnAmount;
+        if (relPos.clockPosition >= 1 && relPos.clockPosition <= 6) {
+          // Traffic on right - turn left
+          turnDirection = 'left';
+          turnAmount = 15; // Conservative turn
+        } else {
+          // Traffic on left - turn right
+          turnDirection = 'right';
+          turnAmount = 15;
+        }
+        
+        maneuver = {
+          type: 'heading',
+          action: turnDirection,
+          amount: turnAmount,
+          targetHeading: turnDirection === 'left' ? 
+            (primaryAircraft.heading - turnAmount + 360) % 360 :
+            (primaryAircraft.heading + turnAmount) % 360
+        };
+      } else {
+        // Moderate distance - slight heading adjustment is sufficient
+        const relPos = getRelativePosition(
+          primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+          secondaryAircraft.lat, secondaryAircraft.lon
+        );
+        
+        let turnDirection = relPos.clockPosition >= 1 && relPos.clockPosition <= 6 ? 'left' : 'right';
+        
+        maneuver = {
+          type: 'heading',
+          action: turnDirection,
+          amount: 10,
+          targetHeading: turnDirection === 'left' ? 
+            (primaryAircraft.heading - 10 + 360) % 360 :
+            (primaryAircraft.heading + 10) % 360
+        };
+      }
+      
+      // Get relative position of secondary aircraft from primary's perspective
+      const relativePos = getRelativePosition(
+        primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+        secondaryAircraft.lat, secondaryAircraft.lon
+      );
+      
+      // Build the advisory message
+      let advisory = {
+        targetCallsign: primaryAircraft.callsign,
+        targetCategory: getAircraftCategory(primaryAircraft.callsign),
+        otherCallsign: secondaryAircraft.callsign,
+        otherCategory: getAircraftCategory(secondaryAircraft.callsign),
+        maneuver: maneuver,
+        trafficPosition: relativePos,
+        timeToConflict: conflict.timeToConflict,
+        currentAltitude: Math.round(primaryAircraft.altitude),
+        otherAltitude: Math.round(secondaryAircraft.altitude),
+        currentHeading: Math.round(primaryAircraft.heading),
+        severity: conflict.severity
+      };
+      
+      return advisory;
+    }
+    
+    function formatAdvisory(advisory) {
+      let message = `<div style="margin-bottom:10px;">`;
+      message += `<div style="font-size:13px;font-weight:700;color:#00acc1;margin-bottom:5px;">`;
+      message += `📢 ADVISORY FOR ${advisory.targetCallsign}`;
+      message += `</div>`;
+      
+      // Traffic alert
+      message += `<div style="font-size:12px;color:#fff;margin-bottom:8px;">`;
+      message += `<strong>TRAFFIC ALERT:</strong> ${advisory.otherCallsign} `;
+      message += `(${advisory.otherCategory.toUpperCase()}) at your ${advisory.trafficPosition.direction}, `;
+      message += `${Math.abs(advisory.currentAltitude - advisory.otherAltitude)} ft `;
+      message += advisory.currentAltitude > advisory.otherAltitude ? 'below' : 'above';
+      message += `</div>`;
+      
+      // Recommended action
+      message += `<div style="background:rgba(0,172,193,0.2);padding:8px;border-radius:4px;border-left:3px solid #00acc1;">`;
+      message += `<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:3px;">Recommended Action</div>`;
+      
+      if (advisory.maneuver.type === 'altitude') {
+        message += `<div style="font-size:13px;font-weight:700;color:#00acc1;">`;
+        message += advisory.maneuver.action === 'climb' ? '⬆️ CLIMB' : '⬇️ DESCEND';
+        message += ` ${advisory.maneuver.amount} FEET</div>`;
+        message += `<div style="font-size:11px;color:#aaa;margin-top:3px;">`;
+        message += `Target Altitude: ${advisory.maneuver.targetAltitude.toLocaleString()} ft`;
+        message += `</div>`;
+      } else {
+        message += `<div style="font-size:13px;font-weight:700;color:#00acc1;">`;
+        message += advisory.maneuver.action === 'left' ? '↶ TURN LEFT' : '↷ TURN RIGHT';
+        message += ` ${advisory.maneuver.amount}°</div>`;
+        message += `<div style="font-size:11px;color:#aaa;margin-top:3px;">`;
+        message += `New Heading: ${advisory.maneuver.targetHeading.toString().padStart(3, '0')}°`;
+        message += `</div>`;
+      }
+      
+      message += `</div>`;
+      
+      // Visual scanning instruction
+      message += `<div style="font-size:11px;color:#ffeb3b;margin-top:8px;">`;
+      message += `⚠️ MAINTAIN VISUAL SCANNING - Traffic at ${advisory.trafficPosition.direction}`;
+      message += `</div>`;
+      
+      message += `</div>`;
+      
+      return message;
+    }
+    
     const facilities = {
       KSFO: {pos: [37.6213, -122.3789], radius: 50, name: 'San Francisco'},
       KLAX: {pos: [33.9425, -118.4081], radius: 60, name: 'Los Angeles'},
@@ -2038,7 +2258,19 @@ Report saved to console.`);
       
       alerts.sort((a, b) => a.timeToConflict - b.timeToConflict);
       
-      alertsList.innerHTML = alerts.map(alert => `
+      // Generate resolution advisories for each conflict
+      const advisories = [];
+      alerts.forEach(alert => {
+        const ac1 = (currentMode === 'live' ? liveTraffic : simulatedTraffic).find(ac => ac.callsign === alert.aircraft1);
+        const ac2 = (currentMode === 'live' ? liveTraffic : simulatedTraffic).find(ac => ac.callsign === alert.aircraft2);
+        
+        if (ac1 && ac2) {
+          const advisory = generateResolutionAdvice(ac1, ac2, alert);
+          advisories.push(advisory);
+        }
+      });
+      
+      alertsList.innerHTML = alerts.map((alert, index) => `
         <div class="alert-item ${alert.severity}">
           <div class="alert-header">
             <span class="alert-severity ${alert.severity}">${alert.severity.toUpperCase()}</span>
@@ -2054,6 +2286,7 @@ Report saved to console.`);
             📊 ${Math.round(alert.altSeparation).toLocaleString()} ft altitude diff<br>
             ✈️ ${alert.alt1.toLocaleString()} ft | ${alert.alt2.toLocaleString()} ft
           </div>
+          ${advisories[index] ? formatAdvisory(advisories[index]) : ''}
         </div>
       `).join('');
     }
