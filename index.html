@@ -2728,9 +2728,95 @@ Report saved to console.`);
       const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
       
       let predictedAlt = aircraft.altitude;
+      
+      // Account for climb/descent if already in progress
       if (aircraft.climbRate !== 0) {
         predictedAlt += aircraft.climbRate * minutes;
         predictedAlt = Math.max(aircraft.altitude, Math.min(aircraft.targetAltitude || aircraft.altitude, predictedAlt));
+      } else {
+        // Predict altitude changes based on traffic type and position
+        const facility = facilities[currentFacility];
+        const currentDist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        const futureDist = calculateDistance(facility.pos[0], facility.pos[1], newPos[0], newPos[1]);
+        
+        // Determine if aircraft is inbound, outbound, or crossing
+        const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        
+        const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+        const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+        
+        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+        
+        let trafficType;
+        if (normalizedToFacility < 45) {
+          trafficType = 'inbound';
+        } else if (normalizedFromFacility < 45) {
+          trafficType = 'outbound';
+        } else {
+          trafficType = 'crossing';
+        }
+        
+        // INBOUND TRAFFIC - Expect descent as they approach
+        if (trafficType === 'inbound' && futureDist < currentDist) {
+          // Getting closer to facility - should be descending
+          if (aircraft.altitude > 8000) {
+            // High altitude - steeper descent expected
+            // Typical descent rate: 1500-2000 fpm when far out, 500-1000 fpm closer in
+            let descentRate;
+            if (futureDist > 30) {
+              descentRate = -1500; // Steeper descent far from airport
+            } else if (futureDist > 15) {
+              descentRate = -1000; // Moderate descent
+            } else {
+              descentRate = -500; // Gentle descent close in
+            }
+            
+            predictedAlt = aircraft.altitude + (descentRate * minutes);
+            
+            // Don't predict below pattern altitude (typically 2000-3000 ft)
+            predictedAlt = Math.max(2500, predictedAlt);
+          }
+        }
+        
+        // OUTBOUND TRAFFIC - Expect climb as they depart
+        if (trafficType === 'outbound' && futureDist > currentDist) {
+          // Getting further from facility - should be climbing
+          if (aircraft.altitude < 18000) {
+            // Below cruise altitude - expect climb
+            // Typical climb rate: 1500-2500 fpm initially, then 500-1000 fpm higher up
+            let climbRate;
+            if (aircraft.altitude < 10000) {
+              climbRate = 2000; // Strong climb after takeoff
+            } else if (aircraft.altitude < 15000) {
+              climbRate = 1000; // Moderate climb
+            } else {
+              climbRate = 500; // Gentle climb approaching cruise
+            }
+            
+            predictedAlt = aircraft.altitude + (climbRate * minutes);
+            
+            // Cap at typical cruise altitude for the region
+            predictedAlt = Math.min(40000, predictedAlt);
+          }
+        }
+        
+        // CROSSING TRAFFIC - Typically maintains altitude unless very high or very low
+        if (trafficType === 'crossing') {
+          // Crossing traffic usually maintains altitude
+          // But if they're very low or very high, expect some altitude change
+          if (aircraft.altitude < 5000) {
+            // Very low - might be climbing out
+            predictedAlt = aircraft.altitude + (500 * minutes);
+            predictedAlt = Math.min(10000, predictedAlt);
+          } else if (aircraft.altitude > 35000) {
+            // Very high - might be descending to lower cruise
+            predictedAlt = aircraft.altitude - (200 * minutes);
+            predictedAlt = Math.max(30000, predictedAlt);
+          }
+          // Otherwise maintain altitude
+        }
       }
       
       return {
