@@ -190,7 +190,6 @@
       position: absolute;
       top: 20px;
       right: 20px;
-      width: 280px;
       background: rgba(15, 15, 35, 0.95);
       border: 2px solid #4caf50;
       border-radius: 8px;
@@ -199,6 +198,55 @@
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: all;
+      transition: all 0.3s ease;
+    }
+    
+    #metrics-panel.collapsed {
+      width: auto;
+      padding: 10px 15px;
+    }
+    
+    #metrics-panel.collapsed .metric-item,
+    #metrics-panel.collapsed .sim-header {
+      display: none;
+    }
+    
+    #metrics-toggle-btn {
+      background: #4caf50;
+      color: #000;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+    }
+    
+    #metrics-panel.collapsed #metrics-toggle-btn {
+      display: block;
+    }
+    
+    #metrics-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    
+    #metrics-close-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    
+    #metrics-panel.collapsed #metrics-close-btn {
+      display: none;
     }
 
     
@@ -435,19 +483,22 @@
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      width: 650px;
-      max-height: 350px;
+      width: 700px;
+      height: 280px;
       background: rgba(26, 26, 46, 0.98);
       border: 3px solid #f44336;
       border-radius: 8px;
       z-index: 600;
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 32px rgba(244, 67, 54, 0.4);
-      resize: both;
       overflow: hidden;
       min-width: 400px;
       min-height: 150px;
+      max-width: 90vw;
+      max-height: 500px;
       pointer-events: all;
+      display: flex;
+      flex-direction: column;
     }
     
     #conflict-alert-box.hidden {
@@ -456,6 +507,21 @@
     
     #conflict-alert-box.has-alerts {
       animation: alertPulse 2s infinite;
+    }
+    
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, #f44336 50%);
+      border-bottom-right-radius: 6px;
+    }
+    
+    .resize-handle:hover {
+      background: linear-gradient(135deg, transparent 50%, #ff6b60 50%);
     }
     
     @keyframes alertPulse {
@@ -505,7 +571,7 @@
     #conflict-content {
       padding: 15px;
       overflow-y: auto;
-      max-height: calc(100% - 100px);
+      flex: 1;
     }
     
     .alert-summary {
@@ -601,7 +667,24 @@
     
     .alert-aircraft {
       font-weight: 700;
-      color: #00acc1;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0, 172, 193, 0.2);
+    }
+    
+    .alert-item.critical .alert-aircraft {
+      color: #f44336;
+      background: rgba(244, 67, 54, 0.2);
+    }
+    
+    .alert-item.warning .alert-aircraft {
+      color: #ff9800;
+      background: rgba(255, 152, 0, 0.2);
+    }
+    
+    .alert-item.caution .alert-aircraft {
+      color: #ffeb3b;
+      background: rgba(255, 235, 59, 0.2);
     }
     
     .alert-details {
@@ -772,6 +855,8 @@
         </div>
         
         <div id="metrics-panel">
+          <button id="metrics-toggle-btn" onclick="toggleMetricsPanel()">📊 METRICS</button>
+          <button id="metrics-close-btn" onclick="toggleMetricsPanel()">✕</button>
           <div class="sim-header" style="border-color:#4caf50;">
             📊 PERFORMANCE METRICS
           </div>
@@ -837,6 +922,7 @@
           </div>
           <div id="alerts-list"></div>
         </div>
+        <div class="resize-handle"></div>
       </div>
     </div>
   </div>
@@ -849,6 +935,7 @@
     let currentMode = 'live';
     let conflictBoxHidden = false;
     let leftPanelCollapsed = false;
+    let metricsPanelCollapsed = true; // Start collapsed
     
     // Live Feed Variables
     let liveTraffic = [];
@@ -893,9 +980,24 @@
       // Initialize live mode
       startLiveMode();
       
-      // Make conflict box draggable
+      // Initialize metrics panel as collapsed
+      document.getElementById('metrics-panel').classList.add('collapsed');
+      
+      // Make conflict box draggable and resizable
       makeDraggable(document.getElementById('conflict-alert-box'));
+      makeResizable(document.getElementById('conflict-alert-box'));
     });
+
+    function toggleMetricsPanel() {
+      const panel = document.getElementById('metrics-panel');
+      metricsPanelCollapsed = !metricsPanelCollapsed;
+      
+      if (metricsPanelCollapsed) {
+        panel.classList.add('collapsed');
+      } else {
+        panel.classList.remove('collapsed');
+      }
+    }
 
     function switchMode(mode) {
       if (currentMode === mode) return;
@@ -2060,6 +2162,46 @@ Report saved to console.`);
       function closeDragElement() {
         document.onmouseup = null;
         document.onmousemove = null;
+      }
+    }
+
+    function makeResizable(element) {
+      const resizeHandle = element.querySelector('.resize-handle');
+      if (!resizeHandle) return;
+      
+      let startX, startY, startWidth, startHeight;
+      
+      resizeHandle.addEventListener('mousedown', initResize);
+      
+      function initResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = parseInt(document.defaultView.getComputedStyle(element).width, 10);
+        startHeight = parseInt(document.defaultView.getComputedStyle(element).height, 10);
+        
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+      }
+      
+      function resize(e) {
+        const width = startWidth + (e.clientX - startX);
+        const height = startHeight + (e.clientY - startY);
+        
+        // Apply min/max constraints
+        if (width >= 400 && width <= window.innerWidth * 0.9) {
+          element.style.width = width + 'px';
+        }
+        if (height >= 150 && height <= 500) {
+          element.style.height = height + 'px';
+        }
+      }
+      
+      function stopResize() {
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
       }
     }
   </script>
