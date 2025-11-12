@@ -643,6 +643,21 @@
       50% { opacity: 0.5; }
     }
     
+    @keyframes conflictFlash {
+      0%, 100% { 
+        filter: drop-shadow(0 0 8px #f44336);
+        opacity: 1;
+      }
+      50% { 
+        filter: drop-shadow(0 0 16px #f44336);
+        opacity: 0.7;
+      }
+    }
+    
+    .conflict-marker {
+      animation: conflictFlash 1s infinite !important;
+    }
+    
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -1821,6 +1836,16 @@ Report saved to console.`);
       document.getElementById('warning-count').textContent = warning;
       document.getElementById('caution-count').textContent = caution;
       
+      // Build set of all aircraft in conflicts
+      const conflictedAircraft = new Set();
+      alerts.forEach(alert => {
+        conflictedAircraft.add(alert.aircraft1);
+        conflictedAircraft.add(alert.aircraft2);
+      });
+      
+      // Update all markers to show conflict status
+      updateMarkerConflictStatus(conflictedAircraft);
+      
       if (alerts.length === 0) {
         alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
         conflictBox.classList.remove('has-alerts');
@@ -1854,6 +1879,81 @@ Report saved to console.`);
           </div>
         </div>
       `).join('');
+    }
+
+    function updateMarkerConflictStatus(conflictedAircraft) {
+      trafficMarkers.forEach(marker => {
+        const markerElement = marker.getElement();
+        if (!markerElement) return;
+        
+        // Find the aircraft for this marker
+        let aircraft = null;
+        let isConflicted = false;
+        
+        if (currentMode === 'live') {
+          aircraft = liveTraffic.find(ac => {
+            const markerPos = marker.getLatLng();
+            return Math.abs(ac.lat - markerPos.lat) < 0.0001 && Math.abs(ac.lon - markerPos.lng) < 0.0001;
+          });
+          if (aircraft && conflictedAircraft.has(aircraft.callsign)) {
+            isConflicted = true;
+          }
+        } else {
+          aircraft = simulatedTraffic.find(ac => ac.id === marker.aircraftId);
+          if (aircraft && conflictedAircraft.has(aircraft.callsign)) {
+            isConflicted = true;
+          }
+        }
+        
+        if (isConflicted) {
+          // Add conflict styling - red and flashing
+          const triangleDiv = markerElement.querySelector('div');
+          if (triangleDiv) {
+            triangleDiv.style.color = '#f44336';
+            triangleDiv.style.animation = 'conflictFlash 1s infinite';
+          }
+        } else {
+          // Reset to normal color based on traffic type
+          if (aircraft) {
+            const triangleDiv = markerElement.querySelector('div');
+            if (triangleDiv) {
+              let normalColor;
+              
+              if (currentMode === 'live') {
+                if (aircraft.trafficType === 'inbound') {
+                  normalColor = '#4caf50';
+                } else if (aircraft.trafficType === 'outbound') {
+                  normalColor = '#00acc1';
+                } else {
+                  normalColor = '#ffeb3b';
+                }
+              } else {
+                // For simulation, calculate traffic type
+                const facility = facilities[currentFacility];
+                const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+                const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+                
+                const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+                const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+                
+                const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+                const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+                
+                if (normalizedToFacility < 45) {
+                  normalColor = '#4caf50';
+                } else if (normalizedFromFacility < 45) {
+                  normalColor = '#00acc1';
+                } else {
+                  normalColor = '#ffeb3b';
+                }
+              }
+              
+              triangleDiv.style.color = normalColor;
+              triangleDiv.style.animation = '';
+            }
+          }
+        }
+      });
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
