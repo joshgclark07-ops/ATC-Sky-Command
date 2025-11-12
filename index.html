@@ -1477,6 +1477,9 @@
       updateStatus('live', 'Simulation Mode Active');
       generateSimulatedTraffic(trafficDensity);
       updateMetrics();
+      
+      // Initialize advisory panel display
+      displayAdvisoryPanel();
     }
 
     function stopSimulationMode() {
@@ -2255,6 +2258,8 @@
     }
     
     function updateAdvisoryPanel(alerts) {
+      console.log('updateAdvisoryPanel called with', alerts.length, 'alerts');
+      
       // Generate advisories for new conflicts
       alerts.forEach(alert => {
         const conflictKey = [alert.aircraft1, alert.aircraft2].sort().join('-');
@@ -2272,9 +2277,13 @@
           const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
           const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
           
+          console.log('Found aircraft:', ac1?.callsign, ac2?.callsign);
+          
           if (ac1 && ac2) {
             const advisory = generateResolutionAdvice(ac1, ac2, alert);
             const advisoryId = advisoryIdCounter++;
+            
+            console.log('Creating advisory', advisoryId, 'for', advisory.targetCallsign);
             
             activeAdvisories.set(advisoryId, {
               id: advisoryId,
@@ -2302,6 +2311,8 @@
           }
         }
       });
+      
+      console.log('Active advisories:', activeAdvisories.size);
       
       // Remove advisories for resolved conflicts
       const currentConflictKeys = new Set(
