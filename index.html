@@ -796,7 +796,7 @@
       </div>
       
       <!-- Conflict Alert Box - Shared -->
-      <div id="conflict-alert-box" class="hidden">
+      <div id="conflict-alert-box">
         <div id="conflict-header">
           <div id="conflict-header-title">
             🚨 CONFLICT ALERTS
@@ -1119,16 +1119,15 @@
     function addLiveAircraftMarker(aircraft) {
       let triangleColor;
       if (aircraft.trafficType === 'inbound') {
-        triangleColor = '#4caf50';
+        triangleColor = '#4caf50'; // Green for inbound
       } else if (aircraft.trafficType === 'outbound') {
-        triangleColor = '#f44336';
+        triangleColor = '#00acc1'; // Blue for outbound
       } else {
-        triangleColor = '#ff9800';
+        triangleColor = '#ffeb3b'; // Yellow for crossing
       }
       
       const arrowIcon = L.divIcon({
-        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:24px;text-shadow:0 0 3px #000;">▲</div>` +
-              `<div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:${triangleColor};padding:2px 6px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;">${aircraft.callsign}</div>`,
+        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:24px;text-shadow:0 0 3px #000;">▲</div>`,
         className: '',
         iconSize: [24, 24],
         iconAnchor: [12, 12]
@@ -1415,30 +1414,44 @@
     }
 
     function addSimulatedAircraftMarker(aircraft) {
+      const facility = facilities[currentFacility];
+      const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+      
+      // Determine color based on traffic type (calculate it here)
+      const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+      const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+      
+      const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+      const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+      
+      const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+      const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+      
       let triangleColor;
-      if (aircraft.altitude < 10000) {
-        triangleColor = '#4caf50';
-      } else if (aircraft.altitude < 25000) {
-        triangleColor = '#ff9800';
+      let trafficType;
+      if (normalizedToFacility < 45) {
+        triangleColor = '#4caf50'; // Green for inbound
+        trafficType = 'inbound';
+      } else if (normalizedFromFacility < 45) {
+        triangleColor = '#00acc1'; // Blue for outbound
+        trafficType = 'outbound';
       } else {
-        triangleColor = '#00acc1';
+        triangleColor = '#ffeb3b'; // Yellow for crossing
+        trafficType = 'crossing';
       }
       
       const arrowIcon = L.divIcon({
-        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:20px;text-shadow:0 0 3px #000;">▲</div>` +
-              `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:${triangleColor};padding:1px 4px;border-radius:2px;font-size:10px;font-weight:700;white-space:nowrap;pointer-events:none;">${aircraft.callsign}</div>`,
+        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:20px;text-shadow:0 0 3px #000;">▲</div>`,
         className: '',
         iconSize: [20, 20],
         iconAnchor: [10, 10]
       });
       
-      const facility = facilities[currentFacility];
-      const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
-      
       const marker = L.marker([aircraft.lat, aircraft.lon], {
         icon: arrowIcon
       }).addTo(map).bindPopup(
         `<b>${aircraft.callsign}</b><br>` +
+        `Type: ${trafficType.toUpperCase()}<br>` +
         `Alt: ${aircraft.altitude.toLocaleString()} ft<br>` +
         `Speed: ${aircraft.speed} kts<br>` +
         `Heading: ${Math.round(aircraft.heading)}°<br>` +
@@ -1567,18 +1580,34 @@
       if (marker) {
         marker.setLatLng([aircraft.lat, aircraft.lon]);
         
+        const facility = facilities[currentFacility];
+        const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        
+        // Determine color based on traffic type
+        const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        
+        const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+        const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+        
+        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+        
         let triangleColor;
-        if (aircraft.altitude < 10000) {
-          triangleColor = '#4caf50';
-        } else if (aircraft.altitude < 25000) {
-          triangleColor = '#ff9800';
+        let trafficType;
+        if (normalizedToFacility < 45) {
+          triangleColor = '#4caf50'; // Green for inbound
+          trafficType = 'inbound';
+        } else if (normalizedFromFacility < 45) {
+          triangleColor = '#00acc1'; // Blue for outbound
+          trafficType = 'outbound';
         } else {
-          triangleColor = '#00acc1';
+          triangleColor = '#ffeb3b'; // Yellow for crossing
+          trafficType = 'crossing';
         }
         
         const arrowIcon = L.divIcon({
-          html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:20px;text-shadow:0 0 3px #000;">▲</div>` +
-                `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:${triangleColor};padding:1px 4px;border-radius:2px;font-size:10px;font-weight:700;white-space:nowrap;pointer-events:none;">${aircraft.callsign}</div>`,
+          html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:20px;text-shadow:0 0 3px #000;">▲</div>`,
           className: '',
           iconSize: [20, 20],
           iconAnchor: [10, 10]
@@ -1586,11 +1615,9 @@
         
         marker.setIcon(arrowIcon);
         
-        const facility = facilities[currentFacility];
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
-        
         marker.setPopupContent(
           `<b>${aircraft.callsign}</b><br>` +
+          `Type: ${trafficType.toUpperCase()}<br>` +
           `Alt: ${Math.round(aircraft.altitude).toLocaleString()} ft<br>` +
           `Speed: ${aircraft.speed} kts<br>` +
           `Heading: ${Math.round(aircraft.heading)}°<br>` +
@@ -1800,8 +1827,8 @@ Report saved to console.`);
         return;
       }
       
-      if (conflictBoxHidden && alerts.length > 0) {
-        conflictBoxHidden = false;
+      // Always show conflict box when there are alerts (unless manually hidden)
+      if (!conflictBoxHidden) {
         conflictBox.classList.remove('hidden');
       }
       
