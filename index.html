@@ -726,13 +726,64 @@
       50% { opacity: 0.5; }
     }
     
-    @keyframes conflictFlash {
+    /* Floating show conflict button */
+    #show-conflict-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f44336;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 600;
+      pointer-events: all;
+      box-shadow: 0 4px 20px rgba(244, 67, 54, 0.6);
+      display: none;
+    }
+    
+    #show-conflict-btn:hover {
+      background: #ff5a4f;
+      box-shadow: 0 4px 24px rgba(244, 67, 54, 0.8);
+    }
+    
+    #show-conflict-btn.has-conflicts {
+      animation: alertPulse 2s infinite;
+    }
+    
+    @keyframes conflictFlashCritical {
       0%, 100% { 
         filter: drop-shadow(0 0 8px #f44336);
         opacity: 1;
       }
       50% { 
         filter: drop-shadow(0 0 16px #f44336);
+        opacity: 0.7;
+      }
+    }
+    
+    @keyframes conflictFlashWarning {
+      0%, 100% { 
+        filter: drop-shadow(0 0 8px #ff9800);
+        opacity: 1;
+      }
+      50% { 
+        filter: drop-shadow(0 0 16px #ff9800);
+        opacity: 0.7;
+      }
+    }
+    
+    @keyframes conflictFlashCaution {
+      0%, 100% { 
+        filter: drop-shadow(0 0 8px #ffeb3b);
+        opacity: 1;
+      }
+      50% { 
+        filter: drop-shadow(0 0 16px #ffeb3b);
         opacity: 0.7;
       }
     }
@@ -924,6 +975,9 @@
         </div>
         <div class="resize-handle"></div>
       </div>
+      
+      <!-- Show Conflict Button (appears when conflict box is hidden) -->
+      <button id="show-conflict-btn" onclick="toggleConflictBox()">🚨 SHOW CONFLICTS (<span id="total-conflicts">0</span>)</button>
     </div>
   </div>
 
@@ -1929,6 +1983,7 @@ Report saved to console.`);
     function displayAlerts(alerts) {
       const alertsList = document.getElementById('alerts-list');
       const conflictBox = document.getElementById('conflict-alert-box');
+      const showBtn = document.getElementById('show-conflict-btn');
       
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const warning = alerts.filter(a => a.severity === 'warning').length;
@@ -1938,15 +1993,34 @@ Report saved to console.`);
       document.getElementById('warning-count').textContent = warning;
       document.getElementById('caution-count').textContent = caution;
       
-      // Build set of all aircraft in conflicts
-      const conflictedAircraft = new Set();
+      // Update show button
+      const totalConflicts = alerts.length;
+      document.getElementById('total-conflicts').textContent = totalConflicts;
+      
+      if (totalConflicts > 0) {
+        showBtn.classList.add('has-conflicts');
+      } else {
+        showBtn.classList.remove('has-conflicts');
+      }
+      
+      // Build map of aircraft to their highest severity conflict
+      const aircraftSeverity = new Map();
       alerts.forEach(alert => {
-        conflictedAircraft.add(alert.aircraft1);
-        conflictedAircraft.add(alert.aircraft2);
+        const severityLevel = alert.severity === 'critical' ? 3 : alert.severity === 'warning' ? 2 : 1;
+        
+        // Update aircraft1
+        if (!aircraftSeverity.has(alert.aircraft1) || aircraftSeverity.get(alert.aircraft1).level < severityLevel) {
+          aircraftSeverity.set(alert.aircraft1, { severity: alert.severity, level: severityLevel });
+        }
+        
+        // Update aircraft2
+        if (!aircraftSeverity.has(alert.aircraft2) || aircraftSeverity.get(alert.aircraft2).level < severityLevel) {
+          aircraftSeverity.set(alert.aircraft2, { severity: alert.severity, level: severityLevel });
+        }
       });
       
-      // Update all markers to show conflict status
-      updateMarkerConflictStatus(conflictedAircraft);
+      // Update all markers to show conflict status with correct color
+      updateMarkerConflictStatus(aircraftSeverity);
       
       if (alerts.length === 0) {
         alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
@@ -1957,6 +2031,7 @@ Report saved to console.`);
       // Always show conflict box when there are alerts (unless manually hidden)
       if (!conflictBoxHidden) {
         conflictBox.classList.remove('hidden');
+        showBtn.style.display = 'none';
       }
       
       conflictBox.classList.add('has-alerts');
@@ -1983,76 +2058,86 @@ Report saved to console.`);
       `).join('');
     }
 
-    function updateMarkerConflictStatus(conflictedAircraft) {
+    function updateMarkerConflictStatus(aircraftSeverity) {
       trafficMarkers.forEach(marker => {
         const markerElement = marker.getElement();
         if (!markerElement) return;
         
         // Find the aircraft for this marker
         let aircraft = null;
-        let isConflicted = false;
+        let severityInfo = null;
         
         if (currentMode === 'live') {
           aircraft = liveTraffic.find(ac => {
             const markerPos = marker.getLatLng();
             return Math.abs(ac.lat - markerPos.lat) < 0.0001 && Math.abs(ac.lon - markerPos.lng) < 0.0001;
           });
-          if (aircraft && conflictedAircraft.has(aircraft.callsign)) {
-            isConflicted = true;
+          if (aircraft && aircraftSeverity.has(aircraft.callsign)) {
+            severityInfo = aircraftSeverity.get(aircraft.callsign);
           }
         } else {
           aircraft = simulatedTraffic.find(ac => ac.id === marker.aircraftId);
-          if (aircraft && conflictedAircraft.has(aircraft.callsign)) {
-            isConflicted = true;
+          if (aircraft && aircraftSeverity.has(aircraft.callsign)) {
+            severityInfo = aircraftSeverity.get(aircraft.callsign);
           }
         }
         
-        if (isConflicted) {
-          // Add conflict styling - red and flashing
-          const triangleDiv = markerElement.querySelector('div');
-          if (triangleDiv) {
-            triangleDiv.style.color = '#f44336';
-            triangleDiv.style.animation = 'conflictFlash 1s infinite';
+        const triangleDiv = markerElement.querySelector('div');
+        if (!triangleDiv) return;
+        
+        if (severityInfo) {
+          // Add conflict styling - color and flashing based on severity
+          let conflictColor, animation;
+          
+          if (severityInfo.severity === 'critical') {
+            conflictColor = '#f44336'; // Red
+            animation = 'conflictFlashCritical 1s infinite';
+          } else if (severityInfo.severity === 'warning') {
+            conflictColor = '#ff9800'; // Orange
+            animation = 'conflictFlashWarning 1s infinite';
+          } else {
+            conflictColor = '#ffeb3b'; // Yellow
+            animation = 'conflictFlashCaution 1s infinite';
           }
+          
+          triangleDiv.style.color = conflictColor;
+          triangleDiv.style.animation = animation;
         } else {
           // Reset to normal color based on traffic type
           if (aircraft) {
-            const triangleDiv = markerElement.querySelector('div');
-            if (triangleDiv) {
-              let normalColor;
-              
-              if (currentMode === 'live') {
-                if (aircraft.trafficType === 'inbound') {
-                  normalColor = '#4caf50';
-                } else if (aircraft.trafficType === 'outbound') {
-                  normalColor = '#00acc1';
-                } else {
-                  normalColor = '#9c27b0';
-                }
+            let normalColor;
+            
+            if (currentMode === 'live') {
+              if (aircraft.trafficType === 'inbound') {
+                normalColor = '#4caf50';
+              } else if (aircraft.trafficType === 'outbound') {
+                normalColor = '#00acc1';
               } else {
-                // For simulation, calculate traffic type
-                const facility = facilities[currentFacility];
-                const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
-                const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
-                
-                const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
-                const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
-                
-                const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
-                const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
-                
-                if (normalizedToFacility < 45) {
-                  normalColor = '#4caf50';
-                } else if (normalizedFromFacility < 45) {
-                  normalColor = '#00acc1';
-                } else {
-                  normalColor = '#9c27b0';
-                }
+                normalColor = '#9c27b0';
               }
+            } else {
+              // For simulation, calculate traffic type
+              const facility = facilities[currentFacility];
+              const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+              const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
               
-              triangleDiv.style.color = normalColor;
-              triangleDiv.style.animation = '';
+              const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+              const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+              
+              const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+              const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+              
+              if (normalizedToFacility < 45) {
+                normalColor = '#4caf50';
+              } else if (normalizedFromFacility < 45) {
+                normalColor = '#00acc1';
+              } else {
+                normalColor = '#9c27b0';
+              }
             }
+            
+            triangleDiv.style.color = normalColor;
+            triangleDiv.style.animation = '';
           }
         }
       });
@@ -2108,12 +2193,15 @@ Report saved to console.`);
 
     function toggleConflictBox() {
       const box = document.getElementById('conflict-alert-box');
+      const btn = document.getElementById('show-conflict-btn');
       conflictBoxHidden = !conflictBoxHidden;
       
       if (conflictBoxHidden) {
         box.classList.add('hidden');
+        btn.style.display = 'block';
       } else {
         box.classList.remove('hidden');
+        btn.style.display = 'none';
       }
     }
 
