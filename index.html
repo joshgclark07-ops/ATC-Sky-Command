@@ -1054,7 +1054,7 @@
         
         <div id="advisory-panel">
           <div class="sim-header" style="border-color:#00acc1;">
-            📋 ADVISORY NOTIFICATIONS
+            📋 ADVISORY NOTIFICATIONS <span id="advisory-count" style="font-size:12px;color:#888;"></span>
           </div>
           <div id="advisory-list"></div>
         </div>
@@ -1477,9 +1477,6 @@
       updateStatus('live', 'Simulation Mode Active');
       generateSimulatedTraffic(trafficDensity);
       updateMetrics();
-      
-      // Initialize advisory panel display
-      displayAdvisoryPanel();
     }
 
     function stopSimulationMode() {
@@ -2068,7 +2065,7 @@
       
       // Clear advisory panel
       if (currentMode === 'simulation') {
-        displayAdvisoryPanel();
+        updateAdvisoryDisplay([]);
       }
     }
 
@@ -2246,11 +2243,6 @@
       totalConflictsDetected = alerts.length;
       displayAlerts(alerts);
       
-      // Update advisory panel (simulation mode only)
-      if (currentMode === 'simulation') {
-        updateAdvisoryPanel(alerts);
-      }
-      
       if (simulatedTraffic.length > 0) {
         const conflictRate = totalConflictsDetected / simulatedTraffic.length;
         safetyScore = Math.max(0, Math.min(100, 100 - (conflictRate * 50)));
@@ -2336,8 +2328,21 @@
     function displayAdvisoryPanel() {
       const advisoryList = document.getElementById('advisory-list');
       
+      if (!advisoryList) {
+        console.error('Advisory list element not found!');
+        return;
+      }
+      
+      console.log('displayAdvisoryPanel - Active advisories:', activeAdvisories.size);
+      
+      // Update count in header
+      const countElement = document.getElementById('advisory-count');
+      if (countElement) {
+        countElement.textContent = `(${activeAdvisories.size} active)`;
+      }
+      
       if (activeAdvisories.size === 0) {
-        advisoryList.innerHTML = '<div class="empty-state">No active advisories</div>';
+        advisoryList.innerHTML = '<div class="empty-state">No active advisories (waiting for conflicts...)</div>';
         return;
       }
       
@@ -2780,6 +2785,11 @@ Report saved to console.`);
       if (alerts.length === 0) {
         alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
         conflictBox.classList.remove('has-alerts');
+        
+        // Clear advisories in simulation mode
+        if (currentMode === 'simulation') {
+          updateAdvisoryDisplay([]);
+        }
         return;
       }
       
@@ -2811,6 +2821,178 @@ Report saved to console.`);
           </div>
         </div>
       `).join('');
+      
+      // Update advisory panel in simulation mode
+      if (currentMode === 'simulation') {
+        // Generate advisories for each conflict
+        const advisories = [];
+        alerts.forEach(alert => {
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          if (ac1 && ac2) {
+            const advisory = generateResolutionAdvice(ac1, ac2, alert);
+            const conflictKey = [alert.aircraft1, alert.aircraft2].sort().join('-');
+            advisories.push({
+              advisory: advisory,
+              conflictKey: conflictKey,
+              alert: alert
+            });
+          }
+        });
+        
+        updateAdvisoryDisplay(advisories);
+      }
+    }
+    
+    function updateAdvisoryDisplay(advisories) {
+      const advisoryList = document.getElementById('advisory-list');
+      const countElement = document.getElementById('advisory-count');
+      
+      if (!advisoryList) {
+        console.error('Advisory list element not found!');
+        return;
+      }
+      
+      // Merge new advisories with existing tracked advisories
+      advisories.forEach(advData => {
+        const existingAdv = Array.from(activeAdvisories.values()).find(a => a.conflictKey === advData.conflictKey);
+        
+        if (!existingAdv) {
+          // Create new advisory
+          const advisoryId = advisoryIdCounter++;
+          activeAdvisories.set(advisoryId, {
+            id: advisoryId,
+            conflictKey: advData.conflictKey,
+            advisory: advData.advisory,
+            status: 'pending',
+            createdTime: Date.now(),
+            issuedTime: null,
+            acknowledgedTime: null,
+            noResponseTime: null,
+            originalAircraft1: advData.alert.aircraft1,
+            originalAircraft2: advData.alert.aircraft2,
+            targetedAircraft: advData.advisory.targetCallsign,
+            conflictData: advData.alert
+          });
+        } else {
+          // Update existing advisory data (but keep status)
+          existingAdv.advisory = advData.advisory;
+          existingAdv.conflictData = advData.alert;
+        }
+      });
+      
+      // Remove advisories for conflicts that no longer exist
+      const currentConflictKeys = new Set(advisories.map(a => a.conflictKey));
+      const advisoriesToRemove = [];
+      
+      activeAdvisories.forEach((adv, id) => {
+        if (!currentConflictKeys.has(adv.conflictKey) && adv.status !== 'no-response') {
+          advisoriesToRemove.push(id);
+        }
+      });
+      
+      advisoriesToRemove.forEach(id => activeAdvisories.delete(id));
+      
+      // Update count
+      if (countElement) {
+        countElement.textContent = `(${activeAdvisories.size} active)`;
+      }
+      
+      // Display advisories
+      if (activeAdvisories.size === 0) {
+        advisoryList.innerHTML = '<div class="empty-state">No active advisories</div>';
+        return;
+      }
+      
+      // Sort by severity and time
+      const sortedAdvisories = Array.from(activeAdvisories.values()).sort((a, b) => {
+        const severityOrder = { critical: 0, warning: 1, caution: 2 };
+        const aSeverity = severityOrder[a.advisory.severity] || 3;
+        const bSeverity = severityOrder[b.advisory.severity] || 3;
+        
+        if (aSeverity !== bSeverity) return aSeverity - bSeverity;
+        return a.createdTime - b.createdTime;
+      });
+      
+      advisoryList.innerHTML = sortedAdvisories.map(advState => {
+        const adv = advState.advisory;
+        
+        let statusClass = advState.status;
+        let statusText = advState.status === 'no-response' ? 'NO RESPONSE' : advState.status.toUpperCase();
+        let buttonHtml = '';
+        
+        if (advState.status === 'pending') {
+          buttonHtml = `<button class="advisory-action-btn issue" onclick="issueAdvisory(${advState.id})">
+            📡 ISSUE ADVISORY
+          </button>`;
+        } else if (advState.status === 'issued') {
+          buttonHtml = `
+            <button class="advisory-action-btn waiting">
+              ⏳ AWAITING ACKNOWLEDGEMENT...
+            </button>
+            <button class="advisory-action-btn no-response" onclick="markNoResponse(${advState.id})" style="margin-top:4px;">
+              ⚠️ NO RESPONSE - SWITCH TARGET
+            </button>
+          `;
+        } else if (advState.status === 'no-response') {
+          buttonHtml = `<div style="text-align:center;color:#f44336;font-size:11px;margin-top:8px;">
+            ❌ No response - Switching to alternate aircraft...
+          </div>`;
+        } else if (advState.status === 'acknowledged') {
+          buttonHtml = `<div style="text-align:center;color:#4caf50;font-size:11px;margin-top:8px;">
+            ✅ Advisory acknowledged - monitoring compliance
+          </div>`;
+        }
+        
+        // Build detailed advisory information
+        let maneuverText = '';
+        let maneuverIcon = '';
+        if (adv.maneuver.type === 'altitude') {
+          maneuverIcon = adv.maneuver.action === 'climb' ? '⬆️' : '⬇️';
+          maneuverText = `${maneuverIcon} ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount} feet to ${adv.maneuver.targetAltitude.toLocaleString()} ft`;
+        } else {
+          maneuverIcon = adv.maneuver.action === 'left' ? '↶' : '↷';
+          maneuverText = `${maneuverIcon} TURN ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount}° to heading ${adv.maneuver.targetHeading.toString().padStart(3, '0')}°`;
+        }
+        
+        return `
+          <div class="advisory-notification ${statusClass}" id="advisory-${advState.id}">
+            <span class="advisory-status ${statusClass}">${statusText}</span>
+            
+            <div class="advisory-aircraft-id">
+              ${adv.targetCallsign}
+              <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;">(${adv.targetCategory.toUpperCase()})</span>
+            </div>
+            
+            <div style="background:rgba(244,67,54,0.15);padding:8px;border-radius:4px;margin:8px 0;border-left:3px solid #f44336;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">⚠️ Traffic Alert</div>
+              <div style="font-size:12px;color:#fff;">
+                <strong>${adv.otherCallsign}</strong> (${adv.otherCategory.toUpperCase()})
+              </div>
+              <div style="font-size:11px;color:#aaa;margin-top:4px;">
+                Position: ${adv.trafficPosition.direction}<br>
+                Altitude: ${adv.otherAltitude.toLocaleString()} ft 
+                (${Math.abs(adv.currentAltitude - adv.otherAltitude)} ft ${adv.currentAltitude > adv.otherAltitude ? 'below' : 'above'})<br>
+                Time to conflict: ${adv.timeToConflict} min
+              </div>
+            </div>
+            
+            <div style="background:rgba(0,172,193,0.2);padding:8px;border-radius:4px;border-left:3px solid #00acc1;margin-bottom:8px;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">📋 Recommended Action</div>
+              <div style="font-size:13px;font-weight:700;color:#00acc1;">
+                ${maneuverText}
+              </div>
+            </div>
+            
+            <div style="font-size:11px;color:#ffeb3b;padding:6px 8px;background:rgba(255,235,59,0.1);border-radius:4px;margin-bottom:8px;">
+              👁️ Maintain visual scanning - Traffic at ${adv.trafficPosition.direction}
+            </div>
+            
+            ${buttonHtml}
+          </div>
+        `;
+      }).join('');
     }
 
     function updateMarkerConflictStatus(aircraftSeverity) {
