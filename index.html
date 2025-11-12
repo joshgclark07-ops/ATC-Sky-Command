@@ -391,7 +391,7 @@
     }
     
     .traffic-item.crossing-item {
-      border-left-color: #ff9800;
+      border-left-color: #9c27b0;
     }
     
     .traffic-callsign {
@@ -1240,7 +1240,7 @@
       } else if (aircraft.trafficType === 'outbound') {
         triangleColor = '#00acc1'; // Blue for outbound
       } else {
-        triangleColor = '#ffeb3b'; // Yellow for crossing
+        triangleColor = '#9c27b0'; // Purple for crossing
       }
       
       const arrowIcon = L.divIcon({
@@ -1553,7 +1553,7 @@
         triangleColor = '#00acc1'; // Blue for outbound
         trafficType = 'outbound';
       } else {
-        triangleColor = '#ffeb3b'; // Yellow for crossing
+        triangleColor = '#9c27b0'; // Purple for crossing
         trafficType = 'crossing';
       }
       
@@ -1719,7 +1719,7 @@
           triangleColor = '#00acc1'; // Blue for outbound
           trafficType = 'outbound';
         } else {
-          triangleColor = '#ffeb3b'; // Yellow for crossing
+          triangleColor = '#9c27b0'; // Purple for crossing
           trafficType = 'crossing';
         }
         
@@ -2027,7 +2027,7 @@ Report saved to console.`);
                 } else if (aircraft.trafficType === 'outbound') {
                   normalColor = '#00acc1';
                 } else {
-                  normalColor = '#ffeb3b';
+                  normalColor = '#9c27b0';
                 }
               } else {
                 // For simulation, calculate traffic type
@@ -2046,7 +2046,7 @@ Report saved to console.`);
                 } else if (normalizedFromFacility < 45) {
                   normalColor = '#00acc1';
                 } else {
-                  normalColor = '#ffeb3b';
+                  normalColor = '#9c27b0';
                 }
               }
               
