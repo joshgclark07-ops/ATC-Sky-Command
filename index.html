@@ -297,6 +297,11 @@
       background: rgba(76, 175, 80, 0.1);
     }
     
+    .advisory-notification.no-response {
+      border-color: #f44336;
+      background: rgba(244, 67, 54, 0.1);
+    }
+    
     @keyframes advisoryPulse {
       0%, 100% { 
         box-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
@@ -328,6 +333,11 @@
     
     .advisory-status.acknowledged {
       background: #4caf50;
+      color: #fff;
+    }
+    
+    .advisory-status.no-response {
+      background: #f44336;
       color: #fff;
     }
     
@@ -369,6 +379,15 @@
       background: #666;
       color: #aaa;
       cursor: default;
+    }
+    
+    .advisory-action-btn.no-response {
+      background: #f44336;
+      color: #fff;
+    }
+    
+    .advisory-action-btn.no-response:hover {
+      background: #ff5a4f;
     }
     
     .advisory-compact {
@@ -2257,10 +2276,15 @@
               id: advisoryId,
               conflictKey: conflictKey,
               advisory: advisory,
-              status: 'pending', // pending -> issued -> acknowledged
+              status: 'pending', // pending -> issued -> acknowledged OR no-response
               createdTime: Date.now(),
               issuedTime: null,
-              acknowledgedTime: null
+              acknowledgedTime: null,
+              noResponseTime: null,
+              originalAircraft1: alert.aircraft1,
+              originalAircraft2: alert.aircraft2,
+              targetedAircraft: advisory.targetCallsign, // Track which aircraft we issued to
+              conflictData: alert // Store original conflict for fallback
             });
           }
         } else {
@@ -2316,7 +2340,7 @@
         const adv = advState.advisory;
         
         let statusClass = advState.status;
-        let statusText = advState.status.toUpperCase();
+        let statusText = advState.status === 'no-response' ? 'NO RESPONSE' : advState.status.toUpperCase();
         let buttonHtml = '';
         
         if (advState.status === 'pending') {
@@ -2324,9 +2348,18 @@
             📡 ISSUE ADVISORY
           </button>`;
         } else if (advState.status === 'issued') {
-          buttonHtml = `<button class="advisory-action-btn waiting">
-            ⏳ AWAITING ACKNOWLEDGEMENT...
-          </button>`;
+          buttonHtml = `
+            <button class="advisory-action-btn waiting">
+              ⏳ AWAITING ACKNOWLEDGEMENT...
+            </button>
+            <button class="advisory-action-btn no-response" onclick="markNoResponse(${advState.id})" style="margin-top:4px;">
+              ⚠️ NO RESPONSE - SWITCH TARGET
+            </button>
+          `;
+        } else if (advState.status === 'no-response') {
+          buttonHtml = `<div style="text-align:center;color:#f44336;font-size:11px;margin-top:8px;">
+            ❌ No response - Switching to alternate aircraft...
+          </div>`;
         } else if (advState.status === 'acknowledged') {
           buttonHtml = `<div style="text-align:center;color:#4caf50;font-size:11px;margin-top:8px;">
             ✅ Advisory acknowledged - monitoring compliance
@@ -2370,8 +2403,82 @@
       }, ackDelay);
     }
     
+    function markNoResponse(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      if (!advState || advState.status !== 'issued') return;
+      
+      // Update status to no-response
+      advState.status = 'no-response';
+      advState.noResponseTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Create fallback advisory for the other aircraft after a brief delay
+      setTimeout(() => {
+        createFallbackAdvisory(advState);
+      }, 1500);
+    }
+    
+    function createFallbackAdvisory(originalAdvState) {
+      // Remove the no-response advisory
+      activeAdvisories.delete(originalAdvState.id);
+      
+      // Identify the other aircraft in the conflict
+      const originalTarget = originalAdvState.targetedAircraft;
+      const otherAircraftCallsign = originalAdvState.originalAircraft1 === originalTarget ? 
+        originalAdvState.originalAircraft2 : originalAdvState.originalAircraft1;
+      
+      // Find both aircraft
+      const aircraft1 = simulatedTraffic.find(ac => ac.callsign === originalAdvState.originalAircraft1);
+      const aircraft2 = simulatedTraffic.find(ac => ac.callsign === originalAdvState.originalAircraft2);
+      
+      if (!aircraft1 || !aircraft2) {
+        // Conflict may have resolved or aircraft no longer exist
+        displayAdvisoryPanel();
+        return;
+      }
+      
+      // Swap the aircraft in the conflict data to target the other one
+      const swappedConflict = {
+        ...originalAdvState.conflictData,
+        aircraft1: aircraft2.callsign,
+        aircraft2: aircraft1.callsign,
+        alt1: Math.round(aircraft2.altitude),
+        alt2: Math.round(aircraft1.altitude)
+      };
+      
+      // Generate new advisory for the other aircraft
+      const newAdvisory = generateResolutionAdvice(aircraft2, aircraft1, swappedConflict);
+      const newAdvisoryId = advisoryIdCounter++;
+      
+      // Create new advisory entry
+      activeAdvisories.set(newAdvisoryId, {
+        id: newAdvisoryId,
+        conflictKey: originalAdvState.conflictKey,
+        advisory: newAdvisory,
+        status: 'pending',
+        createdTime: Date.now(),
+        issuedTime: null,
+        acknowledgedTime: null,
+        noResponseTime: null,
+        originalAircraft1: swappedConflict.aircraft1,
+        originalAircraft2: swappedConflict.aircraft2,
+        targetedAircraft: newAdvisory.targetCallsign,
+        conflictData: swappedConflict,
+        isFallback: true, // Mark as fallback advisory
+        fallbackFrom: originalAdvState.id
+      });
+      
+      // Update display
+      displayAdvisoryPanel();
+    }
+    
     function acknowledgeAdvisory(advisoryId) {
       const advState = activeAdvisories.get(advisoryId);
+      
+      // Check if advisory still exists and is in issued state
+      // (it may have been marked as no-response and deleted)
       if (!advState || advState.status !== 'issued') return;
       
       // Update status to acknowledged
