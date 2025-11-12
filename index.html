@@ -248,6 +248,134 @@
     #metrics-panel.collapsed #metrics-close-btn {
       display: none;
     }
+    
+    /* Advisory Notification Panel - Simulation Only */
+    #advisory-panel {
+      position: absolute;
+      top: 20px;
+      left: 360px;
+      width: 400px;
+      max-height: calc(100vh - 100px);
+      background: rgba(15, 15, 35, 0.95);
+      border: 2px solid #00acc1;
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 500;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      pointer-events: all;
+      overflow-y: auto;
+    }
+    
+    .advisory-notification {
+      background: rgba(26, 26, 46, 0.8);
+      border: 2px solid #ff9800;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .advisory-notification:hover {
+      background: rgba(26, 26, 46, 0.95);
+      border-color: #ffa726;
+    }
+    
+    .advisory-notification.pending {
+      border-color: #ff9800;
+      animation: advisoryPulse 2s infinite;
+    }
+    
+    .advisory-notification.issued {
+      border-color: #ffeb3b;
+      background: rgba(255, 235, 59, 0.1);
+    }
+    
+    .advisory-notification.acknowledged {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.1);
+    }
+    
+    @keyframes advisoryPulse {
+      0%, 100% { 
+        box-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+      }
+      50% { 
+        box-shadow: 0 0 20px rgba(255, 152, 0, 0.6);
+      }
+    }
+    
+    .advisory-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    .advisory-status.pending {
+      background: #ff9800;
+      color: #000;
+    }
+    
+    .advisory-status.issued {
+      background: #ffeb3b;
+      color: #000;
+    }
+    
+    .advisory-status.acknowledged {
+      background: #4caf50;
+      color: #fff;
+    }
+    
+    .advisory-aircraft-id {
+      font-size: 16px;
+      font-weight: 700;
+      color: #00acc1;
+      margin-bottom: 6px;
+    }
+    
+    .advisory-quick-info {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+    
+    .advisory-action-btn {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    
+    .advisory-action-btn.issue {
+      background: #ff9800;
+      color: #000;
+    }
+    
+    .advisory-action-btn.issue:hover {
+      background: #ffa726;
+    }
+    
+    .advisory-action-btn.waiting {
+      background: #666;
+      color: #aaa;
+      cursor: default;
+    }
+    
+    .advisory-compact {
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.4;
+    }
 
     
     /* Shared Styles */
@@ -905,6 +1033,13 @@
           <button class="btn btn-success" onclick="generateReport()">GENERATE REPORT</button>
         </div>
         
+        <div id="advisory-panel">
+          <div class="sim-header" style="border-color:#00acc1;">
+            📋 ADVISORY NOTIFICATIONS
+          </div>
+          <div id="advisory-list"></div>
+        </div>
+        
         <div id="metrics-panel">
           <button id="metrics-toggle-btn" onclick="toggleMetricsPanel()">📊 METRICS</button>
           <button id="metrics-close-btn" onclick="toggleMetricsPanel()">✕</button>
@@ -1011,6 +1146,10 @@
     let totalConflictsDetected = 0;
     let conflictHistory = [];
     let safetyScore = 100;
+    
+    // Advisory tracking
+    let activeAdvisories = new Map(); // Map of advisory ID to advisory state
+    let advisoryIdCounter = 0;
     
     // Aircraft type classifications (by callsign prefix or pattern)
     const aircraftTypes = {
@@ -1894,12 +2033,21 @@
       conflictHistory = [];
       safetyScore = 100;
       
+      // Clear advisories
+      activeAdvisories.clear();
+      advisoryIdCounter = 0;
+      
       const btn = document.getElementById('sim-toggle');
       btn.textContent = 'START SIMULATION';
       btn.classList.remove('active');
       
       generateSimulatedTraffic(trafficDensity);
       document.getElementById('metric-time').textContent = '00:00';
+      
+      // Clear advisory panel
+      if (currentMode === 'simulation') {
+        displayAdvisoryPanel();
+      }
     }
 
     function runSimulation() {
@@ -2017,6 +2165,240 @@
       }
     }
 
+    function detectSimulationConflicts() {
+      if (currentMode !== 'simulation') return;
+      
+      const alerts = [];
+      
+      for (let i = 0; i < simulatedTraffic.length; i++) {
+        for (let j = i + 1; j < simulatedTraffic.length; j++) {
+          const ac1 = simulatedTraffic[i];
+          const ac2 = simulatedTraffic[j];
+          
+          // Check current separation first
+          const currentDistance = calculateDistance(ac1.lat, ac1.lon, ac2.lat, ac2.lon);
+          const currentAltSep = Math.abs(ac1.altitude - ac2.altitude);
+          
+          // Predict future conflicts (1-10 minutes ahead)
+          for (let minutes = 1; minutes <= 10; minutes++) {
+            const pos1 = predictPosition(ac1, minutes);
+            const pos2 = predictPosition(ac2, minutes);
+            
+            const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+            const altSeparation = Math.abs(pos1.alt - pos2.alt);
+            
+            if (futureDistance < conflictSensitivity && altSeparation < 1000) {
+              const existingAlert = alerts.find(a => 
+                (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
+                (a.aircraft1 === ac2.callsign && a.aircraft2 === ac1.callsign)
+              );
+              
+              if (!existingAlert) {
+                let severity;
+                if (minutes <= 3) {
+                  severity = 'critical';
+                } else if (minutes <= 5) {
+                  severity = 'warning';
+                } else {
+                  severity = 'caution';
+                }
+                
+                alerts.push({
+                  aircraft1: ac1.callsign,
+                  aircraft2: ac2.callsign,
+                  alt1: Math.round(ac1.altitude),
+                  alt2: Math.round(ac2.altitude),
+                  timeToConflict: minutes,
+                  predictedDistance: futureDistance,
+                  altSeparation: altSeparation,
+                  severity: severity
+                });
+              }
+              
+              break;
+            }
+          }
+        }
+      }
+      
+      totalConflictsDetected = alerts.length;
+      displayAlerts(alerts);
+      updateAdvisoryPanel(alerts);
+      
+      if (simulatedTraffic.length > 0) {
+        const conflictRate = totalConflictsDetected / simulatedTraffic.length;
+        safetyScore = Math.max(0, Math.min(100, 100 - (conflictRate * 50)));
+      }
+    }
+    
+    function updateAdvisoryPanel(alerts) {
+      // Generate advisories for new conflicts
+      alerts.forEach(alert => {
+        const conflictKey = [alert.aircraft1, alert.aircraft2].sort().join('-');
+        
+        // Check if we already have an advisory for this conflict
+        let existingAdvisory = null;
+        activeAdvisories.forEach((adv, id) => {
+          if (adv.conflictKey === conflictKey) {
+            existingAdvisory = { id, advisory: adv };
+          }
+        });
+        
+        if (!existingAdvisory) {
+          // Create new advisory
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          if (ac1 && ac2) {
+            const advisory = generateResolutionAdvice(ac1, ac2, alert);
+            const advisoryId = advisoryIdCounter++;
+            
+            activeAdvisories.set(advisoryId, {
+              id: advisoryId,
+              conflictKey: conflictKey,
+              advisory: advisory,
+              status: 'pending', // pending -> issued -> acknowledged
+              createdTime: Date.now(),
+              issuedTime: null,
+              acknowledgedTime: null
+            });
+          }
+        } else {
+          // Update existing advisory's conflict data
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          if (ac1 && ac2) {
+            const updatedAdvisory = generateResolutionAdvice(ac1, ac2, alert);
+            existingAdvisory.advisory.advisory = updatedAdvisory;
+          }
+        }
+      });
+      
+      // Remove advisories for resolved conflicts
+      const currentConflictKeys = new Set(
+        alerts.map(alert => [alert.aircraft1, alert.aircraft2].sort().join('-'))
+      );
+      
+      const advisoriesToRemove = [];
+      activeAdvisories.forEach((adv, id) => {
+        if (!currentConflictKeys.has(adv.conflictKey)) {
+          // Conflict resolved - remove advisory
+          advisoriesToRemove.push(id);
+        }
+      });
+      
+      advisoriesToRemove.forEach(id => activeAdvisories.delete(id));
+      
+      // Display advisories
+      displayAdvisoryPanel();
+    }
+    
+    function displayAdvisoryPanel() {
+      const advisoryList = document.getElementById('advisory-list');
+      
+      if (activeAdvisories.size === 0) {
+        advisoryList.innerHTML = '<div class="empty-state">No active advisories</div>';
+        return;
+      }
+      
+      // Convert to array and sort by severity and time
+      const sortedAdvisories = Array.from(activeAdvisories.values()).sort((a, b) => {
+        const severityOrder = { critical: 0, warning: 1, caution: 2 };
+        const aSeverity = severityOrder[a.advisory.severity] || 3;
+        const bSeverity = severityOrder[b.advisory.severity] || 3;
+        
+        if (aSeverity !== bSeverity) return aSeverity - bSeverity;
+        return a.createdTime - b.createdTime;
+      });
+      
+      advisoryList.innerHTML = sortedAdvisories.map(advState => {
+        const adv = advState.advisory;
+        
+        let statusClass = advState.status;
+        let statusText = advState.status.toUpperCase();
+        let buttonHtml = '';
+        
+        if (advState.status === 'pending') {
+          buttonHtml = `<button class="advisory-action-btn issue" onclick="issueAdvisory(${advState.id})">
+            📡 ISSUE ADVISORY
+          </button>`;
+        } else if (advState.status === 'issued') {
+          buttonHtml = `<button class="advisory-action-btn waiting">
+            ⏳ AWAITING ACKNOWLEDGEMENT...
+          </button>`;
+        } else if (advState.status === 'acknowledged') {
+          buttonHtml = `<div style="text-align:center;color:#4caf50;font-size:11px;margin-top:8px;">
+            ✅ Advisory acknowledged - monitoring compliance
+          </div>`;
+        }
+        
+        return `
+          <div class="advisory-notification ${statusClass}" id="advisory-${advState.id}">
+            <span class="advisory-status ${statusClass}">${statusText}</span>
+            <div class="advisory-aircraft-id">
+              ${adv.targetCallsign}
+            </div>
+            <div class="advisory-quick-info">
+              Traffic: ${adv.otherCallsign} at ${adv.trafficPosition.direction}<br>
+              ${adv.maneuver.type === 'altitude' ? 
+                `${adv.maneuver.action === 'climb' ? '⬆️ Climb' : '⬇️ Descend'} ${adv.maneuver.amount} ft` :
+                `${adv.maneuver.action === 'left' ? '↶ Turn left' : '↷ Turn right'} ${adv.maneuver.amount}°`
+              }
+            </div>
+            ${buttonHtml}
+          </div>
+        `;
+      }).join('');
+    }
+    
+    function issueAdvisory(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      if (!advState || advState.status !== 'pending') return;
+      
+      // Update status to issued
+      advState.status = 'issued';
+      advState.issuedTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Simulate aircraft acknowledgement after 3-8 seconds
+      const ackDelay = 3000 + Math.random() * 5000;
+      setTimeout(() => {
+        acknowledgeAdvisory(advisoryId);
+      }, ackDelay);
+    }
+    
+    function acknowledgeAdvisory(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      if (!advState || advState.status !== 'issued') return;
+      
+      // Update status to acknowledged
+      advState.status = 'acknowledged';
+      advState.acknowledgedTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Apply the maneuver to the aircraft
+      applyAdvisoryManeuver(advState.advisory);
+    }
+    
+    function applyAdvisoryManeuver(advisory) {
+      // Find the target aircraft
+      const aircraft = simulatedTraffic.find(ac => ac.callsign === advisory.targetCallsign);
+      if (!aircraft) return;
+      
+      // Apply the recommended maneuver
+      if (advisory.maneuver.type === 'altitude') {
+        aircraft.targetAltitude = advisory.maneuver.targetAltitude;
+        aircraft.climbRate = advisory.maneuver.action === 'climb' ? 1000 : -1000;
+      } else if (advisory.maneuver.type === 'heading') {
+        aircraft.targetHeading = advisory.maneuver.targetHeading;
+      }
+    }
+    
     function detectSimulationConflicts() {
       if (currentMode !== 'simulation') return;
       
