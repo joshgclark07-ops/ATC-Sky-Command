@@ -1173,9 +1173,21 @@
 
     function startSimulationMode() {
       updateStatus('live', 'Simulation Mode Ready');
+      
+      // Clear all markers
+      trafficMarkers.forEach(m => map.removeLayer(m));
+      trafficMarkers = [];
+      
+      // Reset simulation state
       simulatedTraffic = [];
       nextAircraftId = 0;
       lastSpawnTime = 0;
+      simulationElapsedTime = 0;
+      totalConflictsDetected = 0;
+      
+      // Initialize displays
+      updateSimStats();
+      updateSimTrafficDisplay();
     }
 
     function stopSimulationMode() {
@@ -1448,12 +1460,9 @@
       const inboundPredictions = predictSimInbound();
       document.getElementById('sim-inbound-count').textContent = inboundPredictions.length;
       
-      const inboundBox = document.getElementById('inbound-alert-box');
-      if (inboundPredictions.length === 0) {
-        inboundBox.classList.add('empty');
-      } else {
-        inboundBox.classList.remove('empty');
-        document.getElementById('sim-inbound-traffic').innerHTML = inboundPredictions.map(ac => `
+      document.getElementById('sim-inbound-traffic').innerHTML = inboundPredictions.length === 0 ?
+        '<div class="empty-state">No aircraft approaching</div>' :
+        inboundPredictions.map(ac => `
           <div class="traffic-item">
             <div class="traffic-callsign">${ac.callsign}</div>
             <div class="traffic-details">
@@ -1461,7 +1470,6 @@
             </div>
           </div>
         `).join('');
-      }
     }
 
     function predictSimInbound() {
