@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>ATC Flow Management Platform</title>
+  <title>ATC Management Platform</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     * {box-sizing:border-box;}
@@ -45,6 +45,7 @@
       align-items: center;
     }
     
+    /* Mode Toggle Tabs */
     #mode-tabs {
       display: flex;
       gap: 5px;
@@ -95,6 +96,7 @@
       height:100%;
     }
     
+    /* Dashboard Container */
     .dashboard {
       display: none;
       position: absolute;
@@ -110,134 +112,315 @@
       pointer-events: all;
     }
     
-    /* Simulation Control Bar - Top Left */
-    #sim-control-bar {
+    /* Live Feed Dashboard Elements */
+    #left-panel {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(15, 15, 35, 0.98);
-      border: 2px solid #00acc1;
-      border-radius: 8px;
-      padding: 12px 20px;
-      z-index: 1000;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 280px;
+      background: rgba(15, 15, 35, 0.95);
+      border-right: 2px solid #00acc1;
+      overflow-y: auto;
+      padding: 15px;
+      z-index: 500;
+      transition: transform 0.3s ease;
       backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: all;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      cursor: move;
-      transition: all 0.3s ease;
     }
     
-    #sim-control-bar.collapsed {
-      padding: 8px 15px;
-      gap: 10px;
+    #left-panel.collapsed {
+      transform: translateX(-280px);
     }
     
-    #sim-control-bar.collapsed .sim-stat,
-    #sim-control-bar.collapsed .expand-btn {
-      display: none;
-    }
-    
-    .collapse-btn {
-      background: rgba(0, 172, 193, 0.2);
-      border: 1px solid #00acc1;
-      color: #00acc1;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-left: auto;
-    }
-    
-    .collapse-btn:hover {
-      background: rgba(0, 172, 193, 0.3);
-    }
-    
-    .control-btn-large {
+    #left-panel-toggle {
+      position: absolute;
+      right: -35px;
+      top: 20px;
       background: #00acc1;
       color: #000;
       border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
+      padding: 10px 8px;
+      cursor: pointer;
+      border-radius: 0 6px 6px 0;
       font-size: 16px;
       font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      z-index: 501;
     }
     
-    .control-btn-large:hover {
-      background: #00d4e8;
+    #inbound-alert-box {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      min-width: 250px;
+      max-width: 350px;
+      max-height: 400px;
+      background: rgba(15, 15, 35, 0.95);
+      border: 2px solid #4caf50;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 500;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      pointer-events: all;
     }
     
-    .control-btn-large.playing {
-      background: #f44336;
+    #inbound-alert-box.empty {
+      display: none;
     }
     
-    .control-btn-large.playing:hover {
-      background: #ff5a4f;
-    }
-    
-    .sim-stat {
-      display: flex;
-      flex-direction: column;
-      padding: 0 15px;
-      border-left: 1px solid #00acc1;
-    }
-    
-    .sim-stat:first-of-type {
-      border-left: none;
-    }
-    
-    .sim-stat-label {
-      font-size: 10px;
-      color: #888;
-      text-transform: uppercase;
-      margin-bottom: 3px;
-    }
-    
-    .sim-stat-value {
-      font-size: 18px;
-      color: #00acc1;
-      font-weight: 700;
-    }
-    
-    .expand-btn {
-      background: rgba(0, 172, 193, 0.2);
-      border: 1px solid #00acc1;
-      color: #00acc1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    
-    .expand-btn:hover {
-      background: rgba(0, 172, 193, 0.3);
-    }
-    
-    /* Expanded Sim Controls */
-    #sim-controls-expanded {
-      position: fixed;
+    /* Simulation Dashboard Elements */
+    #sim-control-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
       width: 320px;
       background: rgba(15, 15, 35, 0.95);
       border: 2px solid #00acc1;
       border-radius: 8px;
       padding: 15px;
-      z-index: 998;
+      z-index: 500;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: all;
+    }
+    
+    #metrics-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(15, 15, 35, 0.95);
+      border: 2px solid #4caf50;
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 500;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      pointer-events: all;
+      transition: all 0.3s ease;
+    }
+    
+    #metrics-panel.collapsed {
+      width: auto;
+      padding: 10px 15px;
+    }
+    
+    #metrics-panel.collapsed .metric-item,
+    #metrics-panel.collapsed .sim-header {
       display: none;
     }
     
-    #sim-controls-expanded.visible {
+    #metrics-toggle-btn {
+      background: #4caf50;
+      color: #000;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+    }
+    
+    #metrics-panel.collapsed #metrics-toggle-btn {
       display: block;
+    }
+    
+    #metrics-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    
+    #metrics-close-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    
+    #metrics-panel.collapsed #metrics-close-btn {
+      display: none;
+    }
+    
+    /* Advisory Notification Panel - Simulation Only */
+    #advisory-panel {
+      position: absolute;
+      top: 20px;
+      left: 360px;
+      width: 400px;
+      max-height: calc(100vh - 100px);
+      background: rgba(15, 15, 35, 0.95);
+      border: 2px solid #00acc1;
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 500;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      pointer-events: all;
+      overflow-y: auto;
+    }
+    
+    .advisory-notification {
+      background: rgba(26, 26, 46, 0.8);
+      border: 2px solid #ff9800;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .advisory-notification:hover {
+      background: rgba(26, 26, 46, 0.95);
+      border-color: #ffa726;
+    }
+    
+    .advisory-notification.pending {
+      border-color: #ff9800;
+      animation: advisoryPulse 2s infinite;
+    }
+    
+    .advisory-notification.issued {
+      border-color: #ffeb3b;
+      background: rgba(255, 235, 59, 0.1);
+    }
+    
+    .advisory-notification.acknowledged {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.1);
+    }
+    
+    .advisory-notification.no-response {
+      border-color: #f44336;
+      background: rgba(244, 67, 54, 0.1);
+    }
+    
+    @keyframes advisoryPulse {
+      0%, 100% { 
+        box-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+      }
+      50% { 
+        box-shadow: 0 0 20px rgba(255, 152, 0, 0.6);
+      }
+    }
+    
+    .advisory-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    .advisory-status.pending {
+      background: #ff9800;
+      color: #000;
+    }
+    
+    .advisory-status.issued {
+      background: #ffeb3b;
+      color: #000;
+    }
+    
+    .advisory-status.acknowledged {
+      background: #4caf50;
+      color: #fff;
+    }
+    
+    .advisory-status.no-response {
+      background: #f44336;
+      color: #fff;
+    }
+    
+    .advisory-aircraft-id {
+      font-size: 16px;
+      font-weight: 700;
+      color: #00acc1;
+      margin-bottom: 6px;
+    }
+    
+    .advisory-quick-info {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+    
+    .advisory-action-btn {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    
+    .advisory-action-btn.issue {
+      background: #ff9800;
+      color: #000;
+    }
+    
+    .advisory-action-btn.issue:hover {
+      background: #ffa726;
+    }
+    
+    .advisory-action-btn.waiting {
+      background: #666;
+      color: #aaa;
+      cursor: default;
+    }
+    
+    .advisory-action-btn.no-response {
+      background: #f44336;
+      color: #fff;
+    }
+    
+    .advisory-action-btn.no-response:hover {
+      background: #ff5a4f;
+    }
+    
+    .advisory-compact {
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.4;
+    }
+
+    
+    /* Shared Styles */
+    .sim-header {
+      font-size: 16px;
+      font-weight: 700;
+      color: #00acc1;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .panel-section {
+      margin-bottom: 15px;
+      background: rgba(26, 26, 46, 0.6);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    
+    .panel-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: #00acc1;
+      margin-bottom: 8px;
+      text-transform: uppercase;
     }
     
     .control-group {
@@ -254,7 +437,7 @@
     }
     
     .control-value {
-      font-size: 16px;
+      font-size: 18px;
       color: #00acc1;
       font-weight: 700;
       margin-bottom: 8px;
@@ -300,6 +483,15 @@
       margin-bottom: 8px;
     }
     
+    .btn-primary {
+      background: #00acc1;
+      color: #000;
+    }
+    
+    .btn-primary:hover {
+      background: #00d4e8;
+    }
+    
     .btn-danger {
       background: #f44336;
       color: #fff;
@@ -309,207 +501,17 @@
       background: #ff5a4f;
     }
     
-    /* Unified Traffic Panel - Left Side */
-    #traffic-panel {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 300px;
-      background: rgba(15, 15, 35, 0.95);
-      border-right: 2px solid #00acc1;
-      overflow: hidden;
-      z-index: 500;
-      transition: transform 0.3s ease;
-      backdrop-filter: blur(10px);
-      pointer-events: all;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    #traffic-panel.collapsed {
-      transform: translateX(-300px);
-    }
-    
-    #traffic-panel-toggle {
-      position: absolute;
-      right: -35px;
-      top: 20px;
-      background: #00acc1;
-      color: #000;
-      border: none;
-      padding: 10px 8px;
-      cursor: pointer;
-      border-radius: 0 6px 6px 0;
-      font-size: 16px;
-      font-weight: 700;
-      z-index: 501;
-    }
-    
-    #traffic-panel-tabs {
-      display: flex;
-      background: rgba(26, 26, 46, 0.8);
-      border-bottom: 2px solid #00acc1;
-    }
-    
-    .traffic-tab {
-      flex: 1;
-      padding: 12px;
-      background: transparent;
-      border: none;
-      color: #888;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-    }
-    
-    .traffic-tab:hover {
-      color: #00acc1;
-      background: rgba(0, 172, 193, 0.1);
-    }
-    
-    .traffic-tab.active {
-      color: #00acc1;
-      border-bottom-color: #00acc1;
-      background: rgba(0, 172, 193, 0.05);
-    }
-    
-    #traffic-panel-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 15px;
-    }
-    
-    .traffic-tab-panel {
-      display: none;
-    }
-    
-    .traffic-tab-panel.active {
-      display: block;
-    }
-
-    
-    /* Conflict Panel - Right Side */
-    #conflict-panel {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 350px;
-      background: rgba(15, 15, 35, 0.95);
-      border-left: 3px solid #f44336;
-      overflow-y: auto;
-      z-index: 500;
-      backdrop-filter: blur(10px);
-      box-shadow: -4px 0 20px rgba(0,0,0,0.5);
-      pointer-events: all;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    #conflict-panel.hidden {
-      transform: translateX(350px);
-      transition: transform 0.3s ease;
-    }
-    
-    #conflict-panel-header {
-      background: #f44336;
+    .btn-success {
+      background: #4caf50;
       color: #fff;
-      padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid rgba(0,0,0,0.3);
     }
     
-    #conflict-panel-header.has-alerts {
-      animation: headerPulse 2s infinite;
+    .btn-success:hover {
+      background: #5ec762;
     }
     
-    @keyframes headerPulse {
-      0%, 100% { background: #f44336; }
-      50% { background: #ff6b60; }
-    }
-    
-    #conflict-panel-title {
-      font-size: 16px;
-      font-weight: 700;
-    }
-    
-    .panel-toggle-btn {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    
-    .panel-toggle-btn:hover {
-      background: rgba(255,255,255,0.3);
-    }
-    
-    #conflict-panel-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 15px;
-    }
-    
-    .alert-summary {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 15px;
-    }
-    
-    .alert-count {
-      background: rgba(26, 26, 46, 0.6);
-      padding: 12px 8px;
-      border-radius: 6px;
-      text-align: center;
-    }
-    
-    .alert-count-value {
-      font-size: 24px;
-      font-weight: 700;
-    }
-    
-    .alert-count-value.critical {
-      color: #f44336;
-    }
-    
-    .alert-count-value.warning {
-      color: #ff9800;
-    }
-    
-    .alert-count-value.caution {
-      color: #ffeb3b;
-    }
-    
-    .alert-count-label {
-      font-size: 9px;
-      color: #888;
-      text-transform: uppercase;
-      margin-top: 3px;
-    }
-    
-    .panel-section {
-      margin-bottom: 15px;
-      background: rgba(26, 26, 46, 0.6);
-      border-radius: 6px;
-      padding: 12px;
-    }
-    
-    .panel-header {
-      font-size: 12px;
-      font-weight: 700;
-      color: #00acc1;
-      margin-bottom: 8px;
-      text-transform: uppercase;
+    .btn.active {
+      box-shadow: 0 0 20px rgba(0, 172, 193, 0.6);
     }
     
     .traffic-item {
@@ -532,7 +534,7 @@
     }
     
     .traffic-item.outbound-item {
-      border-left-color: #00acc1;
+      border-left-color: #f44336;
     }
     
     .traffic-item.crossing-item {
@@ -578,10 +580,189 @@
       font-weight: 700;
     }
     
+    .metric-item {
+      background: rgba(26, 26, 46, 0.6);
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border-left: 4px solid #4caf50;
+    }
+    
+    .metric-label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #4caf50;
+    }
+    
+    .metric-subtext {
+      font-size: 10px;
+      color: #666;
+      margin-top: 3px;
+    }
+    
+    .metric-item.warning {
+      border-left-color: #ff9800;
+    }
+    
+    .metric-item.warning .metric-value {
+      color: #ff9800;
+    }
+    
+    .metric-item.danger {
+      border-left-color: #f44336;
+    }
+    
+    .metric-item.danger .metric-value {
+      color: #f44336;
+    }
+
+    
+    /* Conflict Alert Box - Shared between both modes */
+    #conflict-alert-box {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 280px;
+      background: rgba(26, 26, 46, 0.98);
+      border: 3px solid #f44336;
+      border-radius: 8px;
+      z-index: 600;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(244, 67, 54, 0.4);
+      overflow: hidden;
+      min-width: 400px;
+      min-height: 150px;
+      max-width: 90vw;
+      max-height: 500px;
+      pointer-events: all;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #conflict-alert-box.hidden {
+      display: none;
+    }
+    
+    #conflict-alert-box.has-alerts {
+      animation: alertPulse 2s infinite;
+    }
+    
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, #f44336 50%);
+      border-bottom-right-radius: 6px;
+    }
+    
+    .resize-handle:hover {
+      background: linear-gradient(135deg, transparent 50%, #ff6b60 50%);
+    }
+    
+    @keyframes alertPulse {
+      0%, 100% { border-color: #f44336; box-shadow: 0 8px 32px rgba(244, 67, 54, 0.4); }
+      50% { border-color: #ff6b60; box-shadow: 0 8px 32px rgba(244, 67, 54, 0.8); }
+    }
+    
+    #conflict-header {
+      background: #f44336;
+      color: #fff;
+      padding: 10px 15px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    
+    #conflict-header-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    #conflict-controls {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .control-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    .control-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    #conflict-content {
+      padding: 15px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .alert-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .alert-count {
+      background: rgba(15, 15, 35, 0.6);
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    
+    .alert-count-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    
+    .alert-count-value.critical {
+      color: #f44336;
+    }
+    
+    .alert-count-value.warning {
+      color: #ff9800;
+    }
+    
+    .alert-count-value.caution {
+      color: #ffeb3b;
+    }
+    
+    .alert-count-label {
+      font-size: 9px;
+      color: #888;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    
     .alert-item {
       background: rgba(15, 15, 35, 0.8);
-      padding: 12px;
-      margin: 10px 0;
+      padding: 10px;
+      margin: 8px 0;
       border-radius: 6px;
       border-left: 4px solid #f44336;
       font-size: 12px;
@@ -606,13 +787,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     
     .alert-severity {
       font-weight: 700;
       font-size: 11px;
-      padding: 3px 8px;
+      padding: 2px 6px;
       border-radius: 3px;
     }
     
@@ -656,14 +837,14 @@
     .alert-details {
       color: #aaa;
       font-size: 11px;
-      margin-top: 8px;
-      line-height: 1.5;
+      margin-top: 5px;
+      line-height: 1.4;
     }
     
     .alert-time {
       color: #f44336;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 13px;
     }
     
     .status-indicator {
@@ -692,7 +873,36 @@
       50% { opacity: 0.5; }
     }
     
-    @keyframes conflictFlash {
+    /* Floating show conflict button */
+    #show-conflict-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f44336;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 600;
+      pointer-events: all;
+      box-shadow: 0 4px 20px rgba(244, 67, 54, 0.6);
+      display: none;
+    }
+    
+    #show-conflict-btn:hover {
+      background: #ff5a4f;
+      box-shadow: 0 4px 24px rgba(244, 67, 54, 0.8);
+    }
+    
+    #show-conflict-btn.has-conflicts {
+      animation: alertPulse 2s infinite;
+    }
+    
+    @keyframes conflictFlashCritical {
       0%, 100% { 
         filter: drop-shadow(0 0 8px #f44336);
         opacity: 1;
@@ -701,6 +911,32 @@
         filter: drop-shadow(0 0 16px #f44336);
         opacity: 0.7;
       }
+    }
+    
+    @keyframes conflictFlashWarning {
+      0%, 100% { 
+        filter: drop-shadow(0 0 8px #ff9800);
+        opacity: 1;
+      }
+      50% { 
+        filter: drop-shadow(0 0 16px #ff9800);
+        opacity: 0.7;
+      }
+    }
+    
+    @keyframes conflictFlashCaution {
+      0%, 100% { 
+        filter: drop-shadow(0 0 8px #ffeb3b);
+        opacity: 1;
+      }
+      50% { 
+        filter: drop-shadow(0 0 16px #ffeb3b);
+        opacity: 0.7;
+      }
+    }
+    
+    .conflict-marker {
+      animation: conflictFlash 1s infinite !important;
     }
     
     ::-webkit-scrollbar {
@@ -726,7 +962,7 @@
   <div id="container">
     <div id="header">
       <div>
-        <h1>⚡ ATC FLOW MANAGEMENT PLATFORM</h1>
+        <h1>⚡ ATC MANAGEMENT PLATFORM</h1>
         <div id="header-subtitle">
           <span id="status-text">System Online</span>
           <span id="status-indicator" class="status-indicator live"></span>
@@ -754,86 +990,49 @@
       
       <!-- Live Feed Dashboard -->
       <div id="live-dashboard" class="dashboard active">
-        <div id="traffic-panel">
-          <button id="traffic-panel-toggle" onclick="toggleTrafficPanel()">◀</button>
+        <div id="left-panel">
+          <button id="left-panel-toggle" onclick="toggleLeftPanel()">◀</button>
           
-          <div id="traffic-panel-tabs">
-            <button class="traffic-tab active" onclick="switchTrafficTab('active')">🎯 ACTIVE</button>
-            <button class="traffic-tab" onclick="switchTrafficTab('inbound')">📡 INBOUND</button>
-          </div>
-          
-          <div id="traffic-panel-content">
-            <!-- Active Traffic Tab -->
-            <div id="active-tab" class="traffic-tab-panel active">
-              <div class="panel-section">
-                <div style="margin-bottom:15px;">
-                  <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
-                  <div id="active-inbound"></div>
-                </div>
-                
-                <div style="margin-bottom:15px;">
-                  <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:8px;">⬆️ OUTBOUND</div>
-                  <div id="active-outbound"></div>
-                </div>
-                
-                <div>
-                  <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:8px;">↔️ CROSSING</div>
-                  <div id="active-crossing"></div>
-                </div>
-              </div>
+          <div class="panel-section">
+            <div class="panel-header">🎯 Active in Sector</div>
+            
+            <div style="margin-top:12px;">
+              <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:6px;">⬇️ INBOUND</div>
+              <div id="active-inbound"></div>
             </div>
             
-            <!-- Inbound Traffic Tab -->
-            <div id="inbound-tab" class="traffic-tab-panel">
-              <div class="panel-section">
-                <div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:12px;">
-                  📡 Approaching Sector
-                  <span style="float:right;background:#4caf50;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;" id="inbound-count">0</span>
-                </div>
-                <div id="inbound-traffic"></div>
-              </div>
+            <div style="margin-top:12px;">
+              <div style="font-size:11px;font-weight:700;color:#f44336;margin-bottom:6px;">⬆️ OUTBOUND</div>
+              <div id="active-outbound"></div>
+            </div>
+            
+            <div style="margin-top:12px;">
+              <div style="font-size:11px;font-weight:700;color:#ff9800;margin-bottom:6px;">↔️ CROSSING</div>
+              <div id="active-crossing"></div>
             </div>
           </div>
+        </div>
+        
+        <div id="inbound-alert-box">
+          <div class="inbound-header">
+            📡 INBOUND TRAFFIC
+            <span class="inbound-count" id="inbound-count">0</span>
+          </div>
+          <div id="inbound-traffic"></div>
         </div>
       </div>
       
       <!-- Simulation Dashboard -->
       <div id="simulation-dashboard" class="dashboard">
-        <!-- Simulation Control Bar -->
-        <div id="sim-control-bar">
-          <button class="control-btn-large" id="sim-toggle" onclick="toggleSimulation()">
-            <span id="sim-toggle-icon">▶</span>
-            <span id="sim-toggle-text">START</span>
-          </button>
-          
-          <div class="sim-stat">
-            <div class="sim-stat-label">Aircraft</div>
-            <div class="sim-stat-value" id="stat-aircraft">0</div>
+        <div id="sim-control-panel">
+          <div class="sim-header">
+            🎮 SIMULATION CONTROLS
           </div>
           
-          <div class="sim-stat">
-            <div class="sim-stat-label">Conflicts</div>
-            <div class="sim-stat-value" id="stat-conflicts" style="color:#4caf50;">0</div>
-          </div>
-          
-          <div class="sim-stat">
-            <div class="sim-stat-label">Time</div>
-            <div class="sim-stat-value" id="stat-time">00:00</div>
-          </div>
-          
-          <button class="expand-btn" onclick="toggleExpandedControls()">⚙️ SETTINGS</button>
-          
-          <button class="collapse-btn" onclick="toggleSimControlBar()">
-            <span id="sim-bar-collapse-icon">−</span>
-          </button>
-        </div>
-        
-        <!-- Expanded Controls -->
-        <div id="sim-controls-expanded">
           <div class="control-group">
-            <label class="control-label">Traffic Flow Rate</label>
-            <div class="control-value"><span id="flow-rate-value">5</span> aircraft/min</div>
-            <input type="range" id="flow-rate-slider" min="1" max="15" value="5" oninput="updateFlowRate(this.value)">
+            <label class="control-label">Traffic Density</label>
+            <div class="control-value"><span id="density-value">50</span> aircraft</div>
+            <input type="range" id="density-slider" min="10" max="200" value="50" oninput="updateDensity(this.value)">
           </div>
           
           <div class="control-group">
@@ -848,60 +1047,70 @@
             <input type="range" id="sensitivity-slider" min="3" max="10" value="5" step="0.5" oninput="updateSensitivity(this.value)">
           </div>
           
-          <button class="btn btn-danger" onclick="resetSimulation()">RESET SIMULATION</button>
+          <button class="btn btn-primary" id="sim-toggle" onclick="toggleSimulation()">START SIMULATION</button>
+          <button class="btn btn-danger" onclick="resetSimulation()">RESET</button>
+          <button class="btn btn-success" onclick="generateReport()">GENERATE REPORT</button>
         </div>
         
-        <!-- Unified Traffic Panel -->
-        <div id="traffic-panel">
-          <button id="traffic-panel-toggle" onclick="toggleTrafficPanel()">◀</button>
-          
-          <div id="traffic-panel-tabs">
-            <button class="traffic-tab active" onclick="switchTrafficTab('active')">🎯 ACTIVE</button>
-            <button class="traffic-tab" onclick="switchTrafficTab('inbound')">📡 INBOUND</button>
+        <div id="advisory-panel">
+          <div class="sim-header" style="border-color:#00acc1;">
+            📋 ADVISORY NOTIFICATIONS <span id="advisory-count" style="font-size:12px;color:#888;"></span>
+          </div>
+          <div id="advisory-list"></div>
+        </div>
+        
+        <div id="metrics-panel">
+          <button id="metrics-toggle-btn" onclick="toggleMetricsPanel()">📊 METRICS</button>
+          <button id="metrics-close-btn" onclick="toggleMetricsPanel()">✕</button>
+          <div class="sim-header" style="border-color:#4caf50;">
+            📊 PERFORMANCE METRICS
           </div>
           
-          <div id="traffic-panel-content">
-            <!-- Active Traffic Tab -->
-            <div id="sim-active-tab" class="traffic-tab-panel active">
-              <div class="panel-section">
-                <div style="margin-bottom:15px;">
-                  <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
-                  <div id="sim-active-inbound"></div>
-                </div>
-                
-                <div style="margin-bottom:15px;">
-                  <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:8px;">⬆️ OUTBOUND</div>
-                  <div id="sim-active-outbound"></div>
-                </div>
-                
-                <div>
-                  <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:8px;">↔️ CROSSING</div>
-                  <div id="sim-active-crossing"></div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Inbound Traffic Tab -->
-            <div id="sim-inbound-tab" class="traffic-tab-panel">
-              <div class="panel-section">
-                <div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:12px;">
-                  📡 Approaching Sector
-                  <span style="float:right;background:#4caf50;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;" id="sim-inbound-count">0</span>
-                </div>
-                <div id="sim-inbound-traffic"></div>
-              </div>
-            </div>
+          <div class="metric-item">
+            <div class="metric-label">Active Aircraft</div>
+            <div class="metric-value" id="metric-aircraft">0</div>
+            <div class="metric-subtext">In managed airspace</div>
+          </div>
+          
+          <div class="metric-item" id="metric-conflicts-container">
+            <div class="metric-label">Conflicts Detected</div>
+            <div class="metric-value" id="metric-conflicts">0</div>
+            <div class="metric-subtext">Active separation violations</div>
+          </div>
+          
+          <div class="metric-item">
+            <div class="metric-label">Safety Score</div>
+            <div class="metric-value" id="metric-safety">100%</div>
+            <div class="metric-subtext">Based on separation standards</div>
+          </div>
+          
+          <div class="metric-item">
+            <div class="metric-label">Capacity Utilization</div>
+            <div class="metric-value" id="metric-capacity">0%</div>
+            <div class="metric-subtext">vs. traditional limits</div>
+          </div>
+          
+          <div class="metric-item">
+            <div class="metric-label">Simulation Time</div>
+            <div class="metric-value" id="metric-time">00:00</div>
+            <div class="metric-subtext">Elapsed runtime</div>
           </div>
         </div>
+        
+
       </div>
       
-      <!-- Conflict Panel - Right Side (Shared) -->
-      <div id="conflict-panel">
-        <div id="conflict-panel-header">
-          <div id="conflict-panel-title">🚨 CONFLICT ALERTS</div>
-          <button class="panel-toggle-btn" onclick="toggleConflictPanel()">HIDE</button>
+      <!-- Conflict Alert Box - Shared -->
+      <div id="conflict-alert-box">
+        <div id="conflict-header">
+          <div id="conflict-header-title">
+            🚨 CONFLICT ALERTS
+          </div>
+          <div id="conflict-controls">
+            <button class="control-btn" onclick="toggleConflictBox()">HIDE</button>
+          </div>
         </div>
-        <div id="conflict-panel-content">
+        <div id="conflict-content">
           <div class="alert-summary">
             <div class="alert-count">
               <div class="alert-count-value critical" id="critical-count">0</div>
@@ -918,7 +1127,11 @@
           </div>
           <div id="alerts-list"></div>
         </div>
+        <div class="resize-handle"></div>
       </div>
+      
+      <!-- Show Conflict Button (appears when conflict box is hidden) -->
+      <button id="show-conflict-btn" onclick="toggleConflictBox()">🚨 SHOW CONFLICTS (<span id="total-conflicts">0</span>)</button>
     </div>
   </div>
 
@@ -928,17 +1141,16 @@
     let currentFacility = 'KSFO';
     let sectorRadius = 50;
     let currentMode = 'live';
-    let conflictPanelHidden = false;
-    let trafficPanelCollapsed = false;
-    let expandedControlsVisible = false;
-    let currentTrafficTab = 'active';
-    let simControlBarCollapsed = false;
+    let conflictBoxHidden = false;
+    let leftPanelCollapsed = false;
+    let metricsPanelCollapsed = true; // Start collapsed
     
     // Live Feed Variables
     let liveTraffic = [];
     let lastSeenAircraft = new Map();
     let apiFailCount = 0;
     let useFallback = false;
+    let lastSuccessfulFetch = null;
     let liveUpdateInterval = null;
     let liveConflictInterval = null;
     
@@ -946,13 +1158,237 @@
     let simulatedTraffic = [];
     let simulationRunning = false;
     let simulationSpeed = 1;
-    let trafficFlowRate = 5; // aircraft per minute
+    let trafficDensity = 50;
     let conflictSensitivity = 5;
     let simulationStartTime = 0;
     let simulationElapsedTime = 0;
     let totalConflictsDetected = 0;
-    let nextAircraftId = 0;
-    let lastSpawnTime = 0;
+    let conflictHistory = [];
+    let safetyScore = 100;
+    
+    // Advisory tracking
+    let activeAdvisories = new Map(); // Map of advisory ID to advisory state
+    let advisoryIdCounter = 0;
+    
+    // Aircraft type classifications (by callsign prefix or pattern)
+    const aircraftTypes = {
+      // Heavy jets - lowest priority to maneuver
+      'heavy': ['UAL', 'DAL', 'AAL', 'SWA', 'JBU', 'ASA', 'FFT', 'SKW'],
+      // Cargo - medium-low priority
+      'cargo': ['FDX', 'UPS'],
+      // Light aircraft - highest priority to maneuver
+      'light': ['N'] // General aviation typically starts with N
+    };
+    
+    function getAircraftCategory(callsign) {
+      const prefix = callsign.substring(0, 3);
+      
+      if (aircraftTypes.heavy.includes(prefix)) return 'heavy';
+      if (aircraftTypes.cargo.includes(prefix)) return 'cargo';
+      if (callsign.startsWith('N')) return 'light';
+      
+      // Default to medium if unknown
+      return 'medium';
+    }
+    
+    function getRelativePosition(fromLat, fromLon, fromHeading, toLat, toLon) {
+      // Calculate bearing from aircraft to target
+      const bearing = calculateBearing(fromLat, fromLon, toLat, toLon);
+      
+      // Calculate relative bearing (where target is relative to aircraft heading)
+      let relativeBearing = bearing - fromHeading;
+      if (relativeBearing < 0) relativeBearing += 360;
+      if (relativeBearing >= 360) relativeBearing -= 360;
+      
+      // Convert to clock position
+      const hour = Math.round(relativeBearing / 30);
+      const clockPos = hour === 0 ? 12 : hour;
+      
+      // Convert to cardinal direction
+      let direction;
+      if (relativeBearing >= 337.5 || relativeBearing < 22.5) direction = '12 o\'clock (ahead)';
+      else if (relativeBearing >= 22.5 && relativeBearing < 67.5) direction = '1-2 o\'clock (right front)';
+      else if (relativeBearing >= 67.5 && relativeBearing < 112.5) direction = '3 o\'clock (right)';
+      else if (relativeBearing >= 112.5 && relativeBearing < 157.5) direction = '4-5 o\'clock (right rear)';
+      else if (relativeBearing >= 157.5 && relativeBearing < 202.5) direction = '6 o\'clock (behind)';
+      else if (relativeBearing >= 202.5 && relativeBearing < 247.5) direction = '7-8 o\'clock (left rear)';
+      else if (relativeBearing >= 247.5 && relativeBearing < 292.5) direction = '9 o\'clock (left)';
+      else direction = '10-11 o\'clock (left front)';
+      
+      return { clockPosition: clockPos, direction: direction, bearing: Math.round(bearing) };
+    }
+    
+    function generateResolutionAdvice(aircraft1, aircraft2, conflict) {
+      const cat1 = getAircraftCategory(aircraft1.callsign);
+      const cat2 = getAircraftCategory(aircraft2.callsign);
+      
+      // Priority order: heavy < cargo < medium < light
+      const priority = { heavy: 1, cargo: 2, medium: 3, light: 4 };
+      
+      let primaryAircraft, secondaryAircraft;
+      
+      // Aircraft with higher priority number should maneuver
+      if (priority[cat1] > priority[cat2]) {
+        primaryAircraft = aircraft1;
+        secondaryAircraft = aircraft2;
+      } else if (priority[cat2] > priority[cat1]) {
+        primaryAircraft = aircraft2;
+        secondaryAircraft = aircraft1;
+      } else {
+        // Same priority - choose based on other factors
+        // Prefer maneuvering the one at higher altitude (easier to descend)
+        if (aircraft1.altitude > aircraft2.altitude) {
+          primaryAircraft = aircraft1;
+          secondaryAircraft = aircraft2;
+        } else {
+          primaryAircraft = aircraft2;
+          secondaryAircraft = aircraft1;
+        }
+      }
+      
+      const altDiff = Math.abs(aircraft1.altitude - aircraft2.altitude);
+      const lateralDist = conflict.predictedDistance;
+      
+      // Determine maneuver type based on situation
+      let maneuver = {};
+      
+      // If altitude difference is small, use altitude separation (easiest)
+      if (altDiff < 1500) {
+        // Determine if we should climb or descend
+        if (primaryAircraft.altitude > secondaryAircraft.altitude) {
+          // Primary is higher - climb to increase separation
+          const climbAmount = Math.max(500, 1500 - altDiff);
+          maneuver = {
+            type: 'altitude',
+            action: 'climb',
+            amount: climbAmount,
+            targetAltitude: primaryAircraft.altitude + climbAmount
+          };
+        } else {
+          // Primary is lower - descend to increase separation
+          const descendAmount = Math.max(500, 1500 - altDiff);
+          maneuver = {
+            type: 'altitude',
+            action: 'descend',
+            amount: descendAmount,
+            targetAltitude: Math.max(5000, primaryAircraft.altitude - descendAmount)
+          };
+        }
+      } else if (lateralDist < 3) {
+        // Close lateral distance - use heading change
+        const relPos = getRelativePosition(
+          primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+          secondaryAircraft.lat, secondaryAircraft.lon
+        );
+        
+        // Turn away from the other aircraft
+        let turnDirection, turnAmount;
+        if (relPos.clockPosition >= 1 && relPos.clockPosition <= 6) {
+          // Traffic on right - turn left
+          turnDirection = 'left';
+          turnAmount = 15; // Conservative turn
+        } else {
+          // Traffic on left - turn right
+          turnDirection = 'right';
+          turnAmount = 15;
+        }
+        
+        maneuver = {
+          type: 'heading',
+          action: turnDirection,
+          amount: turnAmount,
+          targetHeading: turnDirection === 'left' ? 
+            (primaryAircraft.heading - turnAmount + 360) % 360 :
+            (primaryAircraft.heading + turnAmount) % 360
+        };
+      } else {
+        // Moderate distance - slight heading adjustment is sufficient
+        const relPos = getRelativePosition(
+          primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+          secondaryAircraft.lat, secondaryAircraft.lon
+        );
+        
+        let turnDirection = relPos.clockPosition >= 1 && relPos.clockPosition <= 6 ? 'left' : 'right';
+        
+        maneuver = {
+          type: 'heading',
+          action: turnDirection,
+          amount: 10,
+          targetHeading: turnDirection === 'left' ? 
+            (primaryAircraft.heading - 10 + 360) % 360 :
+            (primaryAircraft.heading + 10) % 360
+        };
+      }
+      
+      // Get relative position of secondary aircraft from primary's perspective
+      const relativePos = getRelativePosition(
+        primaryAircraft.lat, primaryAircraft.lon, primaryAircraft.heading,
+        secondaryAircraft.lat, secondaryAircraft.lon
+      );
+      
+      // Build the advisory message
+      let advisory = {
+        targetCallsign: primaryAircraft.callsign,
+        targetCategory: getAircraftCategory(primaryAircraft.callsign),
+        otherCallsign: secondaryAircraft.callsign,
+        otherCategory: getAircraftCategory(secondaryAircraft.callsign),
+        maneuver: maneuver,
+        trafficPosition: relativePos,
+        timeToConflict: conflict.timeToConflict,
+        currentAltitude: Math.round(primaryAircraft.altitude),
+        otherAltitude: Math.round(secondaryAircraft.altitude),
+        currentHeading: Math.round(primaryAircraft.heading),
+        severity: conflict.severity
+      };
+      
+      return advisory;
+    }
+    
+    function formatAdvisory(advisory) {
+      let message = `<div style="margin-bottom:10px;">`;
+      message += `<div style="font-size:13px;font-weight:700;color:#00acc1;margin-bottom:5px;">`;
+      message += `📢 ADVISORY FOR ${advisory.targetCallsign}`;
+      message += `</div>`;
+      
+      // Traffic alert
+      message += `<div style="font-size:12px;color:#fff;margin-bottom:8px;">`;
+      message += `<strong>TRAFFIC ALERT:</strong> ${advisory.otherCallsign} `;
+      message += `(${advisory.otherCategory.toUpperCase()}) at your ${advisory.trafficPosition.direction}, `;
+      message += `${Math.abs(advisory.currentAltitude - advisory.otherAltitude)} ft `;
+      message += advisory.currentAltitude > advisory.otherAltitude ? 'below' : 'above';
+      message += `</div>`;
+      
+      // Recommended action
+      message += `<div style="background:rgba(0,172,193,0.2);padding:8px;border-radius:4px;border-left:3px solid #00acc1;">`;
+      message += `<div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:3px;">Recommended Action</div>`;
+      
+      if (advisory.maneuver.type === 'altitude') {
+        message += `<div style="font-size:13px;font-weight:700;color:#00acc1;">`;
+        message += advisory.maneuver.action === 'climb' ? '⬆️ CLIMB' : '⬇️ DESCEND';
+        message += ` ${advisory.maneuver.amount} FEET</div>`;
+        message += `<div style="font-size:11px;color:#aaa;margin-top:3px;">`;
+        message += `Target Altitude: ${advisory.maneuver.targetAltitude.toLocaleString()} ft`;
+        message += `</div>`;
+      } else {
+        message += `<div style="font-size:13px;font-weight:700;color:#00acc1;">`;
+        message += advisory.maneuver.action === 'left' ? '↶ TURN LEFT' : '↷ TURN RIGHT';
+        message += ` ${advisory.maneuver.amount}°</div>`;
+        message += `<div style="font-size:11px;color:#aaa;margin-top:3px;">`;
+        message += `New Heading: ${advisory.maneuver.targetHeading.toString().padStart(3, '0')}°`;
+        message += `</div>`;
+      }
+      
+      message += `</div>`;
+      
+      // Visual scanning instruction
+      message += `<div style="font-size:11px;color:#ffeb3b;margin-top:8px;">`;
+      message += `⚠️ MAINTAIN VISUAL SCANNING - Traffic at ${advisory.trafficPosition.direction}`;
+      message += `</div>`;
+      
+      message += `</div>`;
+      
+      return message;
+    }
     
     const facilities = {
       KSFO: {pos: [37.6213, -122.3789], radius: 50, name: 'San Francisco'},
@@ -972,79 +1408,26 @@
       }).addTo(map);
 
       drawSectorBoundary();
+      
+      // Initialize live mode
       startLiveMode();
       
-      // Make sim control bar draggable in simulation mode
-      makeSimControlBarDraggable();
+      // Initialize metrics panel as collapsed
+      document.getElementById('metrics-panel').classList.add('collapsed');
+      
+      // Make conflict box draggable and resizable
+      makeDraggable(document.getElementById('conflict-alert-box'));
+      makeResizable(document.getElementById('conflict-alert-box'));
     });
 
-    function toggleSimControlBar() {
-      simControlBarCollapsed = !simControlBarCollapsed;
-      const bar = document.getElementById('sim-control-bar');
-      const icon = document.getElementById('sim-bar-collapse-icon');
+    function toggleMetricsPanel() {
+      const panel = document.getElementById('metrics-panel');
+      metricsPanelCollapsed = !metricsPanelCollapsed;
       
-      if (simControlBarCollapsed) {
-        bar.classList.add('collapsed');
-        icon.textContent = '+';
+      if (metricsPanelCollapsed) {
+        panel.classList.add('collapsed');
       } else {
-        bar.classList.remove('collapsed');
-        icon.textContent = '−';
-      }
-    }
-
-    function makeSimControlBarDraggable() {
-      const element = document.getElementById('sim-control-bar');
-      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      let isDragging = false;
-      
-      element.onmousedown = dragMouseDown;
-      
-      function dragMouseDown(e) {
-        // Don't drag if clicking on buttons
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') {
-          return;
-        }
-        
-        e = e || window.event;
-        e.preventDefault();
-        isDragging = true;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-        element.style.cursor = 'grabbing';
-      }
-      
-      function elementDrag(e) {
-        if (!isDragging) return;
-        
-        e = e || window.event;
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        
-        // Calculate new position
-        let newTop = element.offsetTop - pos2;
-        let newLeft = element.offsetLeft - pos1;
-        
-        // Keep within viewport bounds
-        const maxTop = window.innerHeight - element.offsetHeight - 20;
-        const maxLeft = window.innerWidth - element.offsetWidth - 20;
-        
-        newTop = Math.max(80, Math.min(newTop, maxTop)); // 80px to clear header
-        newLeft = Math.max(20, Math.min(newLeft, maxLeft));
-        
-        element.style.top = newTop + "px";
-        element.style.left = newLeft + "px";
-      }
-      
-      function closeDragElement() {
-        isDragging = false;
-        document.onmouseup = null;
-        document.onmousemove = null;
-        element.style.cursor = 'move';
+        panel.classList.remove('collapsed');
       }
     }
 
@@ -1053,12 +1436,17 @@
       
       currentMode = mode;
       
-      document.querySelectorAll('.mode-tab').forEach(tab => tab.classList.remove('active'));
+      // Update tab styling
+      document.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
       event.target.classList.add('active');
       
+      // Clear markers
       trafficMarkers.forEach(m => map.removeLayer(m));
       trafficMarkers = [];
       
+      // Hide/show dashboards
       if (mode === 'live') {
         document.getElementById('live-dashboard').classList.add('active');
         document.getElementById('simulation-dashboard').classList.remove('active');
@@ -1070,92 +1458,6 @@
         stopLiveMode();
         startSimulationMode();
       }
-    }
-
-    function toggleTrafficPanel() {
-      const panel = document.getElementById('traffic-panel');
-      const toggle = document.getElementById('traffic-panel-toggle');
-      trafficPanelCollapsed = !trafficPanelCollapsed;
-      
-      if (trafficPanelCollapsed) {
-        panel.classList.add('collapsed');
-        toggle.textContent = '▶';
-      } else {
-        panel.classList.remove('collapsed');
-        toggle.textContent = '◀';
-      }
-    }
-
-    function switchTrafficTab(tab) {
-      currentTrafficTab = tab;
-      
-      // Update tab buttons
-      document.querySelectorAll('.traffic-tab').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      event.target.classList.add('active');
-      
-      // Update tab panels based on mode
-      if (currentMode === 'live') {
-        document.getElementById('active-tab').classList.remove('active');
-        document.getElementById('inbound-tab').classList.remove('active');
-        
-        if (tab === 'active') {
-          document.getElementById('active-tab').classList.add('active');
-        } else {
-          document.getElementById('inbound-tab').classList.add('active');
-        }
-      } else {
-        document.getElementById('sim-active-tab').classList.remove('active');
-        document.getElementById('sim-inbound-tab').classList.remove('active');
-        
-        if (tab === 'active') {
-          document.getElementById('sim-active-tab').classList.add('active');
-        } else {
-          document.getElementById('sim-inbound-tab').classList.add('active');
-        }
-      }
-    }
-
-    function toggleExpandedControls() {
-      expandedControlsVisible = !expandedControlsVisible;
-      const panel = document.getElementById('sim-controls-expanded');
-      const bar = document.getElementById('sim-control-bar');
-      
-      if (expandedControlsVisible) {
-        // Position expanded controls below the control bar
-        const barRect = bar.getBoundingClientRect();
-        panel.style.top = (barRect.bottom + 10) + 'px';
-        panel.style.left = barRect.left + 'px';
-        panel.classList.add('visible');
-      } else {
-        panel.classList.remove('visible');
-      }
-    }
-
-    function toggleConflictPanel() {
-      conflictPanelHidden = !conflictPanelHidden;
-      const panel = document.getElementById('conflict-panel');
-      if (conflictPanelHidden) {
-        panel.classList.add('hidden');
-      } else {
-        panel.classList.remove('hidden');
-      }
-    }
-
-    function updateFlowRate(value) {
-      trafficFlowRate = parseInt(value);
-      document.getElementById('flow-rate-value').textContent = trafficFlowRate;
-    }
-
-    function updateSpeed(value) {
-      simulationSpeed = parseInt(value);
-      document.getElementById('speed-value').textContent = simulationSpeed;
-    }
-
-    function updateSensitivity(value) {
-      conflictSensitivity = parseFloat(value);
-      document.getElementById('sensitivity-value').textContent = conflictSensitivity;
     }
 
     function startLiveMode() {
@@ -1172,338 +1474,226 @@
     }
 
     function startSimulationMode() {
-      updateStatus('live', 'Simulation Mode Ready');
-      
-      // Clear all markers
-      trafficMarkers.forEach(m => map.removeLayer(m));
-      trafficMarkers = [];
-      
-      // Reset simulation state
-      simulatedTraffic = [];
-      nextAircraftId = 0;
-      lastSpawnTime = 0;
-      simulationElapsedTime = 0;
-      totalConflictsDetected = 0;
-      
-      // Initialize displays
-      updateSimStats();
-      updateSimTrafficDisplay();
+      updateStatus('live', 'Simulation Mode Active');
+      generateSimulatedTraffic(trafficDensity);
+      updateMetrics();
     }
 
     function stopSimulationMode() {
       if (simulationRunning) {
         simulationRunning = false;
-        updateSimToggleButton(false);
+        const btn = document.getElementById('sim-toggle');
+        btn.textContent = 'START SIMULATION';
+        btn.classList.remove('active');
       }
       simulatedTraffic = [];
     }
 
-    function toggleSimulation() {
-      simulationRunning = !simulationRunning;
-      updateSimToggleButton(simulationRunning);
+    function changeFacility() {
+      currentFacility = document.getElementById('airport').value;
+      const facility = facilities[currentFacility];
+      sectorRadius = facility.radius;
+      map.setView(facility.pos, 9);
+      drawSectorBoundary();
       
-      if (simulationRunning) {
-        simulationStartTime = Date.now() - (simulationElapsedTime * 1000);
-        lastSpawnTime = Date.now();
-        runSimulation();
-      }
-    }
-
-    function updateSimToggleButton(isRunning) {
-      const btn = document.getElementById('sim-toggle');
-      const icon = document.getElementById('sim-toggle-icon');
-      const text = document.getElementById('sim-toggle-text');
-      
-      if (isRunning) {
-        btn.classList.add('playing');
-        icon.textContent = '⏸';
-        text.textContent = 'PAUSE';
-      } else {
-        btn.classList.remove('playing');
-        icon.textContent = '▶';
-        text.textContent = 'START';
-      }
-    }
-
-    function resetSimulation() {
-      simulationRunning = false;
-      updateSimToggleButton(false);
-      simulationElapsedTime = 0;
-      totalConflictsDetected = 0;
-      nextAircraftId = 0;
-      lastSpawnTime = 0;
-      
+      // Clear and reload based on mode
       trafficMarkers.forEach(m => map.removeLayer(m));
       trafficMarkers = [];
-      simulatedTraffic = [];
       
-      document.getElementById('stat-time').textContent = '00:00';
-      updateSimStats();
-      updateSimTrafficDisplay();
-    }
-
-    function runSimulation() {
-      if (!simulationRunning) return;
-      
-      const currentTime = Date.now();
-      simulationElapsedTime = (currentTime - simulationStartTime) / 1000;
-      
-      // Update time display
-      const minutes = Math.floor(simulationElapsedTime / 60);
-      const seconds = Math.floor(simulationElapsedTime % 60);
-      document.getElementById('stat-time').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      // Spawn new aircraft based on flow rate
-      const spawnInterval = (60 / trafficFlowRate) * 1000; // milliseconds
-      if (currentTime - lastSpawnTime >= spawnInterval) {
-        spawnNewAircraft();
-        lastSpawnTime = currentTime;
-      }
-      
-      // Update existing aircraft
-      const timeStep = 0.1 * simulationSpeed;
-      
-      simulatedTraffic.forEach((aircraft, index) => {
-        // Move aircraft
-        const distanceNM = (aircraft.speed / 3600) * timeStep;
-        const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
-        aircraft.lat = newPos[0];
-        aircraft.lon = newPos[1];
-        
-        // Update altitude
-        if (aircraft.climbRate !== 0) {
-          aircraft.altitude += aircraft.climbRate * timeStep / 60;
-          
-          if ((aircraft.climbRate > 0 && aircraft.altitude >= aircraft.targetAltitude) ||
-              (aircraft.climbRate < 0 && aircraft.altitude <= aircraft.targetAltitude)) {
-            aircraft.altitude = aircraft.targetAltitude;
-            aircraft.climbRate = 0;
-          }
-        }
-        
-        // Update heading
-        if (Math.abs(aircraft.heading - aircraft.targetHeading) > 1) {
-          let headingDiff = aircraft.targetHeading - aircraft.heading;
-          if (headingDiff > 180) headingDiff -= 360;
-          if (headingDiff < -180) headingDiff += 360;
-          
-          const turnRate = 3;
-          const turnAmount = Math.sign(headingDiff) * Math.min(Math.abs(headingDiff), turnRate * timeStep);
-          aircraft.heading = (aircraft.heading + turnAmount + 360) % 360;
-        }
-        
-        // Remove aircraft that left sector
-        const facility = facilities[currentFacility];
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
-        
-        if (dist > sectorRadius * 1.5) {
-          // Remove aircraft
-          const marker = trafficMarkers.find(m => m.aircraftId === aircraft.id);
-          if (marker) {
-            map.removeLayer(marker);
-            const markerIndex = trafficMarkers.indexOf(marker);
-            if (markerIndex > -1) trafficMarkers.splice(markerIndex, 1);
-          }
-          simulatedTraffic.splice(index, 1);
-        } else {
-          updateSimulatedAircraftMarker(aircraft);
-        }
-      });
-      
-      detectSimulationConflicts();
-      updateSimStats();
-      updateSimTrafficDisplay();
-      
-      setTimeout(runSimulation, 100);
-    }
-
-    function spawnNewAircraft() {
-      const facility = facilities[currentFacility];
-      
-      // Spawn outside sector boundary
-      const angle = Math.random() * 360;
-      const spawnDistance = sectorRadius * 1.3;
-      
-      const lat = facility.pos[0] + (spawnDistance / 60) * Math.cos(angle * Math.PI / 180);
-      const lon = facility.pos[1] + (spawnDistance / 60) * Math.sin(angle * Math.PI / 180) / Math.cos(facility.pos[0] * Math.PI / 180);
-      
-      const altitude = (Math.floor(Math.random() * 36) + 5) * 1000;
-      const speed = 180 + Math.random() * 200 + (altitude / 1000) * 3;
-      
-      // Determine if inbound, outbound, or crossing
-      const trafficPattern = Math.random();
-      let heading;
-      
-      if (trafficPattern < 0.5) {
-        // Inbound - heading towards facility
-        const bearingToFacility = calculateBearing(lat, lon, facility.pos[0], facility.pos[1]);
-        heading = bearingToFacility + (Math.random() - 0.5) * 20;
-      } else if (trafficPattern < 0.7) {
-        // Outbound - heading away from facility
-        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
-        heading = bearingFromFacility + (Math.random() - 0.5) * 20;
+      if (currentMode === 'live') {
+        liveTraffic = [];
+        loadLiveTraffic();
       } else {
-        // Crossing - perpendicular to radial
-        const radialHeading = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
-        heading = (radialHeading + 90 + (Math.random() - 0.5) * 40) % 360;
-      }
-      
-      heading = (heading + 360) % 360;
-      
-      const prefix = callsignPrefixes[Math.floor(Math.random() * callsignPrefixes.length)];
-      const number = Math.floor(Math.random() * 900) + 100;
-      
-      const aircraft = {
-        id: 'SIM' + nextAircraftId++,
-        callsign: prefix + number,
-        lat: lat,
-        lon: lon,
-        altitude: altitude,
-        speed: Math.round(speed),
-        heading: Math.round(heading),
-        targetAltitude: altitude,
-        targetHeading: heading,
-        climbRate: 0
-      };
-      
-      simulatedTraffic.push(aircraft);
-      addSimulatedAircraftMarker(aircraft);
-    }
-
-    function updateSimStats() {
-      document.getElementById('stat-aircraft').textContent = simulatedTraffic.length;
-      
-      const conflictEl = document.getElementById('stat-conflicts');
-      conflictEl.textContent = totalConflictsDetected;
-      
-      if (totalConflictsDetected === 0) {
-        conflictEl.style.color = '#4caf50';
-      } else if (totalConflictsDetected < 3) {
-        conflictEl.style.color = '#ffeb3b';
-      } else {
-        conflictEl.style.color = '#f44336';
+        if (simulationRunning) resetSimulation();
+        generateSimulatedTraffic(trafficDensity);
       }
     }
 
-    function updateSimTrafficDisplay() {
+    function drawSectorBoundary() {
+      if (sectorCircle) map.removeLayer(sectorCircle);
+      
       const facility = facilities[currentFacility];
-      const activeTraffic = simulatedTraffic.filter(ac => {
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], ac.lat, ac.lon);
-        return dist <= sectorRadius;
-      });
+      sectorCircle = L.circle(facility.pos, {
+        radius: sectorRadius * 1852,
+        color: '#00acc1',
+        fillColor: '#00acc1',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '10, 10'
+      }).addTo(map);
       
-      const inbound = [];
-      const outbound = [];
-      const crossing = [];
-      
-      activeTraffic.forEach(ac => {
-        const bearingToFacility = calculateBearing(ac.lat, ac.lon, facility.pos[0], facility.pos[1]);
-        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], ac.lat, ac.lon);
-        
-        const headingToFacilityDiff = Math.abs(ac.heading - bearingToFacility);
-        const headingFromFacilityDiff = Math.abs(ac.heading - bearingFromFacility);
-        
-        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
-        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
-        
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], ac.lat, ac.lon);
-        
-        if (normalizedToFacility < 45) {
-          inbound.push({...ac, distance: dist});
-        } else if (normalizedFromFacility < 45) {
-          outbound.push({...ac, distance: dist});
-        } else {
-          crossing.push({...ac, distance: dist});
-        }
-      });
-      
-      inbound.sort((a, b) => a.distance - b.distance);
-      outbound.sort((a, b) => a.distance - b.distance);
-      crossing.sort((a, b) => a.distance - b.distance);
-      
-      // Update displays
-      document.getElementById('sim-active-inbound').innerHTML = inbound.length === 0 ? 
-        '<div class="empty-state">No inbound</div>' :
-        inbound.map(ac => `
-          <div class="traffic-item inbound-item">
-            <div class="traffic-callsign">${ac.callsign}</div>
-            <div class="traffic-details">
-              ${Math.round(ac.altitude).toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
-            </div>
-          </div>
-        `).join('');
-      
-      document.getElementById('sim-active-outbound').innerHTML = outbound.length === 0 ?
-        '<div class="empty-state">No outbound</div>' :
-        outbound.map(ac => `
-          <div class="traffic-item outbound-item">
-            <div class="traffic-callsign">${ac.callsign}</div>
-            <div class="traffic-details">
-              ${Math.round(ac.altitude).toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
-            </div>
-          </div>
-        `).join('');
-      
-      document.getElementById('sim-active-crossing').innerHTML = crossing.length === 0 ?
-        '<div class="empty-state">No crossing</div>' :
-        crossing.map(ac => `
-          <div class="traffic-item crossing-item">
-            <div class="traffic-callsign">${ac.callsign}</div>
-            <div class="traffic-details">
-              ${Math.round(ac.altitude).toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
-            </div>
-          </div>
-        `).join('');
-      
-      // Inbound predictions
-      const inboundPredictions = predictSimInbound();
-      document.getElementById('sim-inbound-count').textContent = inboundPredictions.length;
-      
-      document.getElementById('sim-inbound-traffic').innerHTML = inboundPredictions.length === 0 ?
-        '<div class="empty-state">No aircraft approaching</div>' :
-        inboundPredictions.map(ac => `
-          <div class="traffic-item">
-            <div class="traffic-callsign">${ac.callsign}</div>
-            <div class="traffic-details">
-              ${Math.round(ac.altitude).toLocaleString()}ft | ETA: ${ac.eta}min | ${ac.distance.toFixed(1)}nm
-            </div>
-          </div>
-        `).join('');
+      L.marker(facility.pos, {
+        icon: L.divIcon({
+          html: '<div style="background:#00acc1;color:#000;padding:5px 10px;border-radius:5px;font-weight:700;">' + currentFacility + '</div>',
+          className: ''
+        })
+      }).addTo(map);
     }
 
-    function predictSimInbound() {
-      const facility = facilities[currentFacility];
-      const inbound = [];
-      
-      simulatedTraffic.forEach(ac => {
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], ac.lat, ac.lon);
-        
-        if (dist > sectorRadius && dist < sectorRadius * 1.5) {
-          const bearingToFacility = calculateBearing(ac.lat, ac.lon, facility.pos[0], facility.pos[1]);
-          const headingDiff = Math.abs(ac.heading - bearingToFacility);
-          const normalizedDiff = headingDiff > 180 ? 360 - headingDiff : headingDiff;
-          
-          if (normalizedDiff < 60 && ac.speed > 0) {
-            const distToEnter = dist - sectorRadius;
-            const eta = Math.round((distToEnter / ac.speed) * 60);
-            
-            if (eta <= 15) {
-              inbound.push({...ac, eta: eta, distance: dist});
-            }
-          }
-        }
-      });
-      
-      return inbound.sort((a, b) => a.eta - b.eta);
-    }
-
-    // Placeholder functions for live mode (keeping original implementations)
+    // ========== LIVE FEED FUNCTIONS ==========
+    
     async function loadLiveTraffic() {
-      // Original live traffic loading code here
-      // Keeping fallback for now
-      loadFallbackTraffic();
+      trafficMarkers.forEach(m => map.removeLayer(m));
+      trafficMarkers = [];
+      liveTraffic = [];
+
+      if (useFallback || apiFailCount > 3) {
+        console.log('Using fallback mode');
+        updateStatus('fallback', 'Using Simulated Data');
+        loadFallbackTraffic();
+        updateLiveTrafficDisplay();
+        return;
+      }
+
+      try {
+        const facility = facilities[currentFacility];
+        const bounds = {
+          lamin: facility.pos[0] - 1.5,
+          lomin: facility.pos[1] - 1.5,
+          lamax: facility.pos[0] + 1.5,
+          lomax: facility.pos[1] + 1.5
+        };
+        
+        const url = `https://opensky-network.org/api/states/all?lamin=${bounds.lamin}&lomin=${bounds.lomin}&lamax=${bounds.lamax}&lomax=${bounds.lomax}`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.status === 429) {
+          apiFailCount++;
+          if (apiFailCount >= 3) useFallback = true;
+          updateStatus('fallback', 'Rate Limited - Using Simulation');
+          loadFallbackTraffic();
+          updateLiveTrafficDisplay();
+          return;
+        }
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.states && data.states.length > 0) {
+            apiFailCount = 0;
+            lastSuccessfulFetch = Date.now();
+            updateStatus('live', `Live Data - ${data.states.length} aircraft`);
+            processLiveTraffic(data.states);
+            updateLiveTrafficDisplay();
+            return;
+          }
+        }
+        
+        apiFailCount++;
+        loadFallbackTraffic();
+        updateStatus('fallback', 'No Live Data - Using Simulation');
+        
+      } catch (error) {
+        apiFailCount++;
+        updateStatus('error', 'Connection Error - Using Simulation');
+        loadFallbackTraffic();
+      }
+      
       updateLiveTrafficDisplay();
+    }
+
+    function processLiveTraffic(states) {
+      const facility = facilities[currentFacility];
+      const currentTime = Date.now();
+      const maxAircraft = 50;
+      let processedCount = 0;
+      
+      for (let i = 0; i < states.length && processedCount < maxAircraft; i++) {
+        const state = states[i];
+        const longitude = state[5];
+        const latitude = state[6];
+        const baro_altitude = state[7];
+        const on_ground = state[8];
+        const velocity = state[9];
+        const true_track = state[10];
+        const callsign = state[1];
+        const icao24 = state[0];
+        
+        if (latitude && longitude && !on_ground && baro_altitude && velocity) {
+          const dist = calculateDistance(facility.pos[0], facility.pos[1], latitude, longitude);
+          
+          if (dist > sectorRadius * 2.5) continue;
+          
+          processedCount++;
+          
+          const aircraft = {
+            icao24: icao24,
+            callsign: (callsign || 'N/A').trim(),
+            lat: latitude,
+            lon: longitude,
+            altitude: Math.round(baro_altitude * 3.28084),
+            speed: Math.round(velocity * 1.94384),
+            heading: true_track || 0,
+            distance: dist,
+            lastSeen: currentTime
+          };
+          
+          const bearingToFacility = calculateBearing(latitude, longitude, facility.pos[0], facility.pos[1]);
+          const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], latitude, longitude);
+          
+          const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+          const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+          
+          const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+          const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+          
+          if (normalizedToFacility < 45) {
+            aircraft.trafficType = 'inbound';
+          } else if (normalizedFromFacility < 45) {
+            aircraft.trafficType = 'outbound';
+          } else {
+            aircraft.trafficType = 'crossing';
+          }
+          
+          liveTraffic.push(aircraft);
+          lastSeenAircraft.set(icao24, aircraft);
+          
+          addLiveAircraftMarker(aircraft);
+        }
+      }
+      
+      const staleTimeout = 120000;
+      lastSeenAircraft.forEach((aircraft, icao24) => {
+        if (currentTime - aircraft.lastSeen > staleTimeout) {
+          lastSeenAircraft.delete(icao24);
+        }
+      });
+    }
+
+    function addLiveAircraftMarker(aircraft) {
+      let triangleColor;
+      if (aircraft.trafficType === 'inbound') {
+        triangleColor = '#4caf50'; // Green for inbound
+      } else if (aircraft.trafficType === 'outbound') {
+        triangleColor = '#00acc1'; // Blue for outbound
+      } else {
+        triangleColor = '#9c27b0'; // Purple for crossing
+      }
+      
+      const arrowIcon = L.divIcon({
+        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:24px;text-shadow:0 0 3px #000;">▲</div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      
+      const marker = L.marker([aircraft.lat, aircraft.lon], {
+        icon: arrowIcon
+      }).addTo(map).bindPopup(
+        `<b>${aircraft.callsign}</b><br>` +
+        `Type: ${aircraft.trafficType.toUpperCase()}<br>` +
+        `Alt: ${aircraft.altitude.toLocaleString()} ft<br>` +
+        `Speed: ${aircraft.speed} kts<br>` +
+        `Heading: ${Math.round(aircraft.heading)}°<br>` +
+        `Distance: ${aircraft.distance.toFixed(1)} nm`
+      );
+      
+      trafficMarkers.push(marker);
     }
 
     function loadFallbackTraffic() {
@@ -1512,7 +1702,10 @@
       const fallback = [
         { callsign: 'UAL123', offset: [0.15, -0.10], altitude: 8000, speed: 250, heading: 180 },
         { callsign: 'SWA456', offset: [-0.20, 0.08], altitude: 12000, speed: 280, heading: 270 },
-        { callsign: 'AAL789', offset: [0.25, 0.15], altitude: 15000, speed: 320, heading: 45 }
+        { callsign: 'AAL789', offset: [0.25, 0.15], altitude: 15000, speed: 320, heading: 45 },
+        { callsign: 'DAL234', offset: [-0.10, -0.15], altitude: 10000, speed: 260, heading: 135 },
+        { callsign: 'JBU567', offset: [0.05, 0.20], altitude: 18000, speed: 340, heading: 315 },
+        { callsign: 'N123AB', offset: [-0.15, 0.12], altitude: 5000, speed: 180, heading: 90 }
       ];
       
       fallback.forEach(ac => {
@@ -1521,10 +1714,22 @@
         const dist = calculateDistance(facility.pos[0], facility.pos[1], lat, lon);
         
         const bearingToFacility = calculateBearing(lat, lon, facility.pos[0], facility.pos[1]);
-        const headingToFacilityDiff = Math.abs(ac.heading - bearingToFacility);
-        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
         
-        let trafficType = normalizedToFacility < 45 ? 'inbound' : 'crossing';
+        const headingToFacilityDiff = Math.abs(ac.heading - bearingToFacility);
+        const headingFromFacilityDiff = Math.abs(ac.heading - bearingFromFacility);
+        
+        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+        
+        let trafficType;
+        if (normalizedToFacility < 45) {
+          trafficType = 'inbound';
+        } else if (normalizedFromFacility < 45) {
+          trafficType = 'outbound';
+        } else {
+          trafficType = 'crossing';
+        }
         
         const aircraft = {
           icao24: 'SIM' + ac.callsign,
@@ -1544,52 +1749,224 @@
       });
     }
 
-    function addLiveAircraftMarker(aircraft) {
-      let triangleColor;
-      if (aircraft.trafficType === 'inbound') {
-        triangleColor = '#4caf50';
-      } else if (aircraft.trafficType === 'outbound') {
-        triangleColor = '#00acc1';
+    function updateLiveTrafficDisplay() {
+      const inboundContainer = document.getElementById('active-inbound');
+      const outboundContainer = document.getElementById('active-outbound');
+      const crossingContainer = document.getElementById('active-crossing');
+      const inboundPredictContainer = document.getElementById('inbound-traffic');
+      const inboundAlertBox = document.getElementById('inbound-alert-box');
+      
+      if (!inboundContainer || !outboundContainer || !crossingContainer || !inboundPredictContainer) return;
+      
+      const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
+      
+      const inbound = activeTraffic.filter(ac => ac.trafficType === 'inbound');
+      const outbound = activeTraffic.filter(ac => ac.trafficType === 'outbound');
+      const crossing = activeTraffic.filter(ac => ac.trafficType === 'crossing');
+      
+      inbound.sort((a, b) => a.distance - b.distance);
+      outbound.sort((a, b) => a.distance - b.distance);
+      crossing.sort((a, b) => a.distance - b.distance);
+      
+      inboundContainer.innerHTML = inbound.length === 0 ? 
+        '<div class="empty-state">No inbound</div>' :
+        inbound.map(ac => `
+          <div class="traffic-item inbound-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
+            </div>
+          </div>
+        `).join('');
+      
+      outboundContainer.innerHTML = outbound.length === 0 ?
+        '<div class="empty-state">No outbound</div>' :
+        outbound.map(ac => `
+          <div class="traffic-item outbound-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
+            </div>
+          </div>
+        `).join('');
+      
+      crossingContainer.innerHTML = crossing.length === 0 ?
+        '<div class="empty-state">No crossing</div>' :
+        crossing.map(ac => `
+          <div class="traffic-item crossing-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              ${ac.altitude.toLocaleString()}ft | ${Math.round(ac.heading)}° | ${ac.distance.toFixed(1)}nm
+            </div>
+          </div>
+        `).join('');
+      
+      const inboundTraffic = predictInbound();
+      document.getElementById('inbound-count').textContent = inboundTraffic.length;
+      
+      if (inboundTraffic.length === 0) {
+        inboundAlertBox.classList.add('empty');
       } else {
-        triangleColor = '#9c27b0';
+        inboundAlertBox.classList.remove('empty');
+        inboundPredictContainer.innerHTML = inboundTraffic.map(ac => `
+          <div class="traffic-item">
+            <div class="traffic-callsign">${ac.callsign}</div>
+            <div class="traffic-details">
+              ${ac.altitude.toLocaleString()}ft | ETA: ${ac.eta}min | ${ac.distance.toFixed(1)}nm
+            </div>
+          </div>
+        `).join('');
       }
-      
-      const arrowIcon = L.divIcon({
-        html: `<div style="transform:rotate(${aircraft.heading}deg);color:${triangleColor};font-size:24px;text-shadow:0 0 3px #000;">▲</div>`,
-        className: '',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      });
-      
-      const marker = L.marker([aircraft.lat, aircraft.lon], {
-        icon: arrowIcon
-      }).addTo(map).bindPopup(
-        `<b>${aircraft.callsign}</b><br>` +
-        `Type: ${aircraft.trafficType.toUpperCase()}<br>` +
-        `Alt: ${aircraft.altitude.toLocaleString()} ft<br>` +
-        `Speed: ${aircraft.speed} kts<br>` +
-        `Heading: ${Math.round(aircraft.heading)}°`
-      );
-      
-      trafficMarkers.push(marker);
     }
 
-    function updateLiveTrafficDisplay() {
-      // Simple placeholder
-      document.getElementById('active-inbound').innerHTML = '<div class="empty-state">Live mode</div>';
-      document.getElementById('active-outbound').innerHTML = '<div class="empty-state">Live mode</div>';
-      document.getElementById('active-crossing').innerHTML = '<div class="empty-state">Live mode</div>';
+    function predictInbound() {
+      const facility = facilities[currentFacility];
+      const inbound = [];
+      
+      liveTraffic.forEach(ac => {
+        if (ac.distance > sectorRadius && ac.distance < sectorRadius * 2) {
+          const bearingToFacility = calculateBearing(ac.lat, ac.lon, facility.pos[0], facility.pos[1]);
+          const headingDiff = Math.abs(ac.heading - bearingToFacility);
+          const normalizedDiff = headingDiff > 180 ? 360 - headingDiff : headingDiff;
+          
+          if (normalizedDiff < 60 && ac.speed > 0) {
+            const distToEnter = ac.distance - sectorRadius;
+            const eta = Math.round((distToEnter / ac.speed) * 60);
+            
+            if (eta <= 10) {
+              inbound.push({...ac, eta: eta});
+            }
+          }
+        }
+      });
+      
+      return inbound.sort((a, b) => a.eta - b.eta);
     }
 
     function detectLiveConflicts() {
-      // Placeholder
-      displayAlerts([]);
+      if (currentMode !== 'live') return;
+      
+      const alerts = [];
+      const activeTraffic = liveTraffic.filter(ac => ac.distance <= sectorRadius);
+      
+      if (activeTraffic.length < 2) {
+        displayAlerts([]);
+        return;
+      }
+      
+      for (let i = 0; i < activeTraffic.length; i++) {
+        for (let j = i + 1; j < activeTraffic.length; j++) {
+          const ac1 = activeTraffic[i];
+          const ac2 = activeTraffic[j];
+          
+          if (!ac1.speed || !ac2.speed || ac1.speed < 50 || ac2.speed < 50) continue;
+          
+          for (let minutes = 1; minutes <= 10; minutes++) {
+            const pos1 = predictPosition(ac1, minutes);
+            const pos2 = predictPosition(ac2, minutes);
+            
+            const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+            const altSeparation = Math.abs(pos1.alt - pos2.alt);
+            
+            if (futureDistance < 5 && altSeparation < 1000) {
+              const existingAlert = alerts.find(a => 
+                (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
+                (a.aircraft1 === ac2.callsign && a.aircraft2 === ac1.callsign)
+              );
+              
+              if (!existingAlert) {
+                let severity;
+                if (minutes <= 3) {
+                  severity = 'critical';
+                } else if (minutes <= 5) {
+                  severity = 'warning';
+                } else {
+                  severity = 'caution';
+                }
+                
+                alerts.push({
+                  aircraft1: ac1.callsign,
+                  aircraft2: ac2.callsign,
+                  alt1: ac1.altitude,
+                  alt2: ac2.altitude,
+                  timeToConflict: minutes,
+                  predictedDistance: futureDistance,
+                  altSeparation: altSeparation,
+                  severity: severity
+                });
+              }
+              
+              break;
+            }
+          }
+        }
+      }
+      
+      displayAlerts(alerts);
+    }
+
+    // ========== SIMULATION FUNCTIONS ==========
+    
+    function generateSimulatedTraffic(count) {
+      trafficMarkers.forEach(m => map.removeLayer(m));
+      trafficMarkers = [];
+      simulatedTraffic = [];
+      
+      const facility = facilities[currentFacility];
+      
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * 360;
+        const distance = sectorRadius * 0.3 + Math.random() * sectorRadius * 0.7;
+        
+        const lat = facility.pos[0] + (distance / 60) * Math.cos(angle * Math.PI / 180);
+        const lon = facility.pos[1] + (distance / 60) * Math.sin(angle * Math.PI / 180) / Math.cos(facility.pos[0] * Math.PI / 180);
+        
+        const altitude = (Math.floor(Math.random() * 36) + 5) * 1000;
+        const speed = 180 + Math.random() * 200 + (altitude / 1000) * 3;
+        
+        let heading;
+        const trafficPattern = Math.random();
+        const bearingToFacility = calculateBearing(lat, lon, facility.pos[0], facility.pos[1]);
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], lat, lon);
+        
+        if (trafficPattern < 0.33) {
+          heading = bearingToFacility + (Math.random() - 0.5) * 30;
+        } else if (trafficPattern < 0.66) {
+          heading = bearingFromFacility + (Math.random() - 0.5) * 30;
+        } else {
+          heading = Math.random() * 360;
+        }
+        
+        heading = (heading + 360) % 360;
+        
+        const prefix = callsignPrefixes[Math.floor(Math.random() * callsignPrefixes.length)];
+        const number = Math.floor(Math.random() * 900) + 100;
+        
+        const aircraft = {
+          id: 'SIM' + i,
+          callsign: prefix + number,
+          lat: lat,
+          lon: lon,
+          altitude: altitude,
+          speed: Math.round(speed),
+          heading: Math.round(heading),
+          targetAltitude: altitude,
+          targetHeading: heading,
+          climbRate: 0
+        };
+        
+        simulatedTraffic.push(aircraft);
+        addSimulatedAircraftMarker(aircraft);
+      }
+      
+      updateMetrics();
     }
 
     function addSimulatedAircraftMarker(aircraft) {
       const facility = facilities[currentFacility];
       const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
       
+      // Determine color based on traffic type (calculate it here)
       const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
       const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
       
@@ -1600,12 +1977,16 @@
       const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
       
       let triangleColor;
+      let trafficType;
       if (normalizedToFacility < 45) {
-        triangleColor = '#4caf50';
+        triangleColor = '#4caf50'; // Green for inbound
+        trafficType = 'inbound';
       } else if (normalizedFromFacility < 45) {
-        triangleColor = '#00acc1';
+        triangleColor = '#00acc1'; // Blue for outbound
+        trafficType = 'outbound';
       } else {
-        triangleColor = '#9c27b0';
+        triangleColor = '#9c27b0'; // Purple for crossing
+        trafficType = 'crossing';
       }
       
       const arrowIcon = L.divIcon({
@@ -1619,7 +2000,8 @@
         icon: arrowIcon
       }).addTo(map).bindPopup(
         `<b>${aircraft.callsign}</b><br>` +
-        `Alt: ${Math.round(aircraft.altitude).toLocaleString()} ft<br>` +
+        `Type: ${trafficType.toUpperCase()}<br>` +
+        `Alt: ${aircraft.altitude.toLocaleString()} ft<br>` +
         `Speed: ${aircraft.speed} kts<br>` +
         `Heading: ${Math.round(aircraft.heading)}°<br>` +
         `Distance: ${dist.toFixed(1)} nm`
@@ -1627,6 +2009,128 @@
       
       marker.aircraftId = aircraft.id;
       trafficMarkers.push(marker);
+    }
+
+    function updateDensity(value) {
+      trafficDensity = parseInt(value);
+      document.getElementById('density-value').textContent = trafficDensity;
+      
+      if (!simulationRunning) {
+        generateSimulatedTraffic(trafficDensity);
+      }
+    }
+
+    function updateSpeed(value) {
+      simulationSpeed = parseInt(value);
+      document.getElementById('speed-value').textContent = simulationSpeed;
+    }
+
+    function updateSensitivity(value) {
+      conflictSensitivity = parseFloat(value);
+      document.getElementById('sensitivity-value').textContent = conflictSensitivity;
+    }
+
+    function toggleSimulation() {
+      simulationRunning = !simulationRunning;
+      const btn = document.getElementById('sim-toggle');
+      
+      if (simulationRunning) {
+        btn.textContent = 'PAUSE SIMULATION';
+        btn.classList.add('active');
+        simulationStartTime = Date.now() - (simulationElapsedTime * 1000);
+        runSimulation();
+      } else {
+        btn.textContent = 'RESUME SIMULATION';
+        btn.classList.remove('active');
+      }
+    }
+
+    function resetSimulation() {
+      simulationRunning = false;
+      simulationElapsedTime = 0;
+      totalConflictsDetected = 0;
+      conflictHistory = [];
+      safetyScore = 100;
+      
+      // Clear advisories
+      activeAdvisories.clear();
+      advisoryIdCounter = 0;
+      
+      const btn = document.getElementById('sim-toggle');
+      btn.textContent = 'START SIMULATION';
+      btn.classList.remove('active');
+      
+      generateSimulatedTraffic(trafficDensity);
+      document.getElementById('metric-time').textContent = '00:00';
+      
+      // Clear advisory panel
+      if (currentMode === 'simulation') {
+        updateAdvisoryDisplay([]);
+      }
+    }
+
+    function runSimulation() {
+      if (!simulationRunning) return;
+      
+      simulationElapsedTime = (Date.now() - simulationStartTime) / 1000;
+      const minutes = Math.floor(simulationElapsedTime / 60);
+      const seconds = Math.floor(simulationElapsedTime % 60);
+      document.getElementById('metric-time').textContent = 
+        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      const timeStep = 0.1 * simulationSpeed;
+      
+      simulatedTraffic.forEach(aircraft => {
+        const distanceNM = (aircraft.speed / 3600) * timeStep;
+        const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
+        aircraft.lat = newPos[0];
+        aircraft.lon = newPos[1];
+        
+        if (aircraft.climbRate !== 0) {
+          aircraft.altitude += aircraft.climbRate * timeStep / 60;
+          
+          if ((aircraft.climbRate > 0 && aircraft.altitude >= aircraft.targetAltitude) ||
+              (aircraft.climbRate < 0 && aircraft.altitude <= aircraft.targetAltitude)) {
+            aircraft.altitude = aircraft.targetAltitude;
+            aircraft.climbRate = 0;
+          }
+        }
+        
+        if (Math.abs(aircraft.heading - aircraft.targetHeading) > 1) {
+          let headingDiff = aircraft.targetHeading - aircraft.heading;
+          if (headingDiff > 180) headingDiff -= 360;
+          if (headingDiff < -180) headingDiff += 360;
+          
+          const turnRate = 3;
+          const turnAmount = Math.sign(headingDiff) * Math.min(Math.abs(headingDiff), turnRate * timeStep);
+          aircraft.heading = (aircraft.heading + turnAmount + 360) % 360;
+        }
+        
+        const facility = facilities[currentFacility];
+        const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        
+        if (dist > sectorRadius * 0.95) {
+          const bearingToCenter = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+          aircraft.targetHeading = bearingToCenter + (Math.random() - 0.5) * 60;
+        }
+        
+        if (Math.random() < 0.001 * simulationSpeed) {
+          aircraft.targetHeading = (aircraft.heading + (Math.random() - 0.5) * 60 + 360) % 360;
+        }
+        
+        if (Math.random() < 0.0005 * simulationSpeed) {
+          const altChange = (Math.random() - 0.5) * 4000;
+          aircraft.targetAltitude = Math.max(5000, Math.min(40000, aircraft.altitude + altChange));
+          aircraft.climbRate = Math.sign(altChange) * (500 + Math.random() * 1500);
+        }
+        
+        updateSimulatedAircraftMarker(aircraft);
+      });
+      
+      detectSimulationConflicts();
+      updateMetrics();
+      
+      setTimeout(runSimulation, 100);
     }
 
     function updateSimulatedAircraftMarker(aircraft) {
@@ -1637,6 +2141,7 @@
         const facility = facilities[currentFacility];
         const dist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
         
+        // Determine color based on traffic type
         const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
         const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
         
@@ -1647,12 +2152,16 @@
         const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
         
         let triangleColor;
+        let trafficType;
         if (normalizedToFacility < 45) {
-          triangleColor = '#4caf50';
+          triangleColor = '#4caf50'; // Green for inbound
+          trafficType = 'inbound';
         } else if (normalizedFromFacility < 45) {
-          triangleColor = '#00acc1';
+          triangleColor = '#00acc1'; // Blue for outbound
+          trafficType = 'outbound';
         } else {
-          triangleColor = '#9c27b0';
+          triangleColor = '#9c27b0'; // Purple for crossing
+          trafficType = 'crossing';
         }
         
         const arrowIcon = L.divIcon({
@@ -1666,6 +2175,7 @@
         
         marker.setPopupContent(
           `<b>${aircraft.callsign}</b><br>` +
+          `Type: ${trafficType.toUpperCase()}<br>` +
           `Alt: ${Math.round(aircraft.altitude).toLocaleString()} ft<br>` +
           `Speed: ${aircraft.speed} kts<br>` +
           `Heading: ${Math.round(aircraft.heading)}°<br>` +
@@ -1678,17 +2188,17 @@
       if (currentMode !== 'simulation') return;
       
       const alerts = [];
-      const activeTraffic = simulatedTraffic.filter(ac => {
-        const facility = facilities[currentFacility];
-        const dist = calculateDistance(facility.pos[0], facility.pos[1], ac.lat, ac.lon);
-        return dist <= sectorRadius;
-      });
       
-      for (let i = 0; i < activeTraffic.length; i++) {
-        for (let j = i + 1; j < activeTraffic.length; j++) {
-          const ac1 = activeTraffic[i];
-          const ac2 = activeTraffic[j];
+      for (let i = 0; i < simulatedTraffic.length; i++) {
+        for (let j = i + 1; j < simulatedTraffic.length; j++) {
+          const ac1 = simulatedTraffic[i];
+          const ac2 = simulatedTraffic[j];
           
+          // Check current separation first
+          const currentDistance = calculateDistance(ac1.lat, ac1.lon, ac2.lat, ac2.lon);
+          const currentAltSep = Math.abs(ac1.altitude - ac2.altitude);
+          
+          // Predict future conflicts (1-10 minutes ahead)
           for (let minutes = 1; minutes <= 10; minutes++) {
             const pos1 = predictPosition(ac1, minutes);
             const pos2 = predictPosition(ac2, minutes);
@@ -1732,8 +2242,479 @@
       
       totalConflictsDetected = alerts.length;
       displayAlerts(alerts);
+      
+      if (simulatedTraffic.length > 0) {
+        const conflictRate = totalConflictsDetected / simulatedTraffic.length;
+        safetyScore = Math.max(0, Math.min(100, 100 - (conflictRate * 50)));
+      }
+    }
+    
+    function updateAdvisoryPanel(alerts) {
+      console.log('updateAdvisoryPanel called with', alerts.length, 'alerts');
+      
+      // Generate advisories for new conflicts
+      alerts.forEach(alert => {
+        const conflictKey = [alert.aircraft1, alert.aircraft2].sort().join('-');
+        
+        // Check if we already have an advisory for this conflict
+        let existingAdvisory = null;
+        activeAdvisories.forEach((adv, id) => {
+          if (adv.conflictKey === conflictKey) {
+            existingAdvisory = { id, advisory: adv };
+          }
+        });
+        
+        if (!existingAdvisory) {
+          // Create new advisory
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          console.log('Found aircraft:', ac1?.callsign, ac2?.callsign);
+          
+          if (ac1 && ac2) {
+            const advisory = generateResolutionAdvice(ac1, ac2, alert);
+            const advisoryId = advisoryIdCounter++;
+            
+            console.log('Creating advisory', advisoryId, 'for', advisory.targetCallsign);
+            
+            activeAdvisories.set(advisoryId, {
+              id: advisoryId,
+              conflictKey: conflictKey,
+              advisory: advisory,
+              status: 'pending', // pending -> issued -> acknowledged OR no-response
+              createdTime: Date.now(),
+              issuedTime: null,
+              acknowledgedTime: null,
+              noResponseTime: null,
+              originalAircraft1: alert.aircraft1,
+              originalAircraft2: alert.aircraft2,
+              targetedAircraft: advisory.targetCallsign, // Track which aircraft we issued to
+              conflictData: alert // Store original conflict for fallback
+            });
+          }
+        } else {
+          // Update existing advisory's conflict data
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          if (ac1 && ac2) {
+            const updatedAdvisory = generateResolutionAdvice(ac1, ac2, alert);
+            existingAdvisory.advisory.advisory = updatedAdvisory;
+          }
+        }
+      });
+      
+      console.log('Active advisories:', activeAdvisories.size);
+      
+      // Remove advisories for resolved conflicts
+      const currentConflictKeys = new Set(
+        alerts.map(alert => [alert.aircraft1, alert.aircraft2].sort().join('-'))
+      );
+      
+      const advisoriesToRemove = [];
+      activeAdvisories.forEach((adv, id) => {
+        if (!currentConflictKeys.has(adv.conflictKey)) {
+          // Conflict resolved - remove advisory
+          advisoriesToRemove.push(id);
+        }
+      });
+      
+      advisoriesToRemove.forEach(id => activeAdvisories.delete(id));
+      
+      // Display advisories
+      displayAdvisoryPanel();
+    }
+    
+    function displayAdvisoryPanel() {
+      const advisoryList = document.getElementById('advisory-list');
+      
+      if (!advisoryList) {
+        console.error('Advisory list element not found!');
+        return;
+      }
+      
+      console.log('displayAdvisoryPanel - Active advisories:', activeAdvisories.size);
+      
+      // Update count in header
+      const countElement = document.getElementById('advisory-count');
+      if (countElement) {
+        countElement.textContent = `(${activeAdvisories.size} active)`;
+      }
+      
+      if (activeAdvisories.size === 0) {
+        advisoryList.innerHTML = '<div class="empty-state">No active advisories (waiting for conflicts...)</div>';
+        return;
+      }
+      
+      // Convert to array and sort by severity and time
+      const sortedAdvisories = Array.from(activeAdvisories.values()).sort((a, b) => {
+        const severityOrder = { critical: 0, warning: 1, caution: 2 };
+        const aSeverity = severityOrder[a.advisory.severity] || 3;
+        const bSeverity = severityOrder[b.advisory.severity] || 3;
+        
+        if (aSeverity !== bSeverity) return aSeverity - bSeverity;
+        return a.createdTime - b.createdTime;
+      });
+      
+      advisoryList.innerHTML = sortedAdvisories.map(advState => {
+        const adv = advState.advisory;
+        
+        let statusClass = advState.status;
+        let statusText = advState.status === 'no-response' ? 'NO RESPONSE' : advState.status.toUpperCase();
+        let buttonHtml = '';
+        
+        if (advState.status === 'pending') {
+          buttonHtml = `<button class="advisory-action-btn issue" onclick="issueAdvisory(${advState.id})">
+            📡 ISSUE ADVISORY
+          </button>`;
+        } else if (advState.status === 'issued') {
+          buttonHtml = `
+            <button class="advisory-action-btn waiting">
+              ⏳ AWAITING ACKNOWLEDGEMENT...
+            </button>
+            <button class="advisory-action-btn no-response" onclick="markNoResponse(${advState.id})" style="margin-top:4px;">
+              ⚠️ NO RESPONSE - SWITCH TARGET
+            </button>
+          `;
+        } else if (advState.status === 'no-response') {
+          buttonHtml = `<div style="text-align:center;color:#f44336;font-size:11px;margin-top:8px;">
+            ❌ No response - Switching to alternate aircraft...
+          </div>`;
+        } else if (advState.status === 'acknowledged') {
+          buttonHtml = `<div style="text-align:center;color:#4caf50;font-size:11px;margin-top:8px;">
+            ✅ Advisory acknowledged - monitoring compliance
+          </div>`;
+        }
+        
+        // Build detailed advisory information
+        let maneuverText = '';
+        let maneuverIcon = '';
+        if (adv.maneuver.type === 'altitude') {
+          maneuverIcon = adv.maneuver.action === 'climb' ? '⬆️' : '⬇️';
+          maneuverText = `${maneuverIcon} ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount} feet to ${adv.maneuver.targetAltitude.toLocaleString()} ft`;
+        } else {
+          maneuverIcon = adv.maneuver.action === 'left' ? '↶' : '↷';
+          maneuverText = `${maneuverIcon} TURN ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount}° to heading ${adv.maneuver.targetHeading.toString().padStart(3, '0')}°`;
+        }
+        
+        return `
+          <div class="advisory-notification ${statusClass}" id="advisory-${advState.id}">
+            <span class="advisory-status ${statusClass}">${statusText}</span>
+            
+            <div class="advisory-aircraft-id">
+              ${adv.targetCallsign}
+              <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;">(${adv.targetCategory.toUpperCase()})</span>
+            </div>
+            
+            <div style="background:rgba(244,67,54,0.15);padding:8px;border-radius:4px;margin:8px 0;border-left:3px solid #f44336;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">⚠️ Traffic Alert</div>
+              <div style="font-size:12px;color:#fff;">
+                <strong>${adv.otherCallsign}</strong> (${adv.otherCategory.toUpperCase()})
+              </div>
+              <div style="font-size:11px;color:#aaa;margin-top:4px;">
+                Position: ${adv.trafficPosition.direction}<br>
+                Altitude: ${adv.otherAltitude.toLocaleString()} ft 
+                (${Math.abs(adv.currentAltitude - adv.otherAltitude)} ft ${adv.currentAltitude > adv.otherAltitude ? 'below' : 'above'})<br>
+                Time to conflict: ${adv.timeToConflict} min
+              </div>
+            </div>
+            
+            <div style="background:rgba(0,172,193,0.2);padding:8px;border-radius:4px;border-left:3px solid #00acc1;margin-bottom:8px;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">📋 Recommended Action</div>
+              <div style="font-size:13px;font-weight:700;color:#00acc1;">
+                ${maneuverText}
+              </div>
+            </div>
+            
+            <div style="font-size:11px;color:#ffeb3b;padding:6px 8px;background:rgba(255,235,59,0.1);border-radius:4px;margin-bottom:8px;">
+              👁️ Maintain visual scanning - Traffic at ${adv.trafficPosition.direction}
+            </div>
+            
+            ${buttonHtml}
+          </div>
+        `;
+      }).join('');
+    }
+    
+    function issueAdvisory(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      if (!advState || advState.status !== 'pending') return;
+      
+      // Update status to issued
+      advState.status = 'issued';
+      advState.issuedTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Simulate aircraft acknowledgement after 3-8 seconds
+      const ackDelay = 3000 + Math.random() * 5000;
+      setTimeout(() => {
+        acknowledgeAdvisory(advisoryId);
+      }, ackDelay);
+    }
+    
+    function markNoResponse(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      if (!advState || advState.status !== 'issued') return;
+      
+      // Update status to no-response
+      advState.status = 'no-response';
+      advState.noResponseTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Create fallback advisory for the other aircraft after a brief delay
+      setTimeout(() => {
+        createFallbackAdvisory(advState);
+      }, 1500);
+    }
+    
+    function createFallbackAdvisory(originalAdvState) {
+      // Remove the no-response advisory
+      activeAdvisories.delete(originalAdvState.id);
+      
+      // Identify the other aircraft in the conflict
+      const originalTarget = originalAdvState.targetedAircraft;
+      const otherAircraftCallsign = originalAdvState.originalAircraft1 === originalTarget ? 
+        originalAdvState.originalAircraft2 : originalAdvState.originalAircraft1;
+      
+      // Find both aircraft
+      const aircraft1 = simulatedTraffic.find(ac => ac.callsign === originalAdvState.originalAircraft1);
+      const aircraft2 = simulatedTraffic.find(ac => ac.callsign === originalAdvState.originalAircraft2);
+      
+      if (!aircraft1 || !aircraft2) {
+        // Conflict may have resolved or aircraft no longer exist
+        displayAdvisoryPanel();
+        return;
+      }
+      
+      // Swap the aircraft in the conflict data to target the other one
+      const swappedConflict = {
+        ...originalAdvState.conflictData,
+        aircraft1: aircraft2.callsign,
+        aircraft2: aircraft1.callsign,
+        alt1: Math.round(aircraft2.altitude),
+        alt2: Math.round(aircraft1.altitude)
+      };
+      
+      // Generate new advisory for the other aircraft
+      const newAdvisory = generateResolutionAdvice(aircraft2, aircraft1, swappedConflict);
+      const newAdvisoryId = advisoryIdCounter++;
+      
+      // Create new advisory entry
+      activeAdvisories.set(newAdvisoryId, {
+        id: newAdvisoryId,
+        conflictKey: originalAdvState.conflictKey,
+        advisory: newAdvisory,
+        status: 'pending',
+        createdTime: Date.now(),
+        issuedTime: null,
+        acknowledgedTime: null,
+        noResponseTime: null,
+        originalAircraft1: swappedConflict.aircraft1,
+        originalAircraft2: swappedConflict.aircraft2,
+        targetedAircraft: newAdvisory.targetCallsign,
+        conflictData: swappedConflict,
+        isFallback: true, // Mark as fallback advisory
+        fallbackFrom: originalAdvState.id
+      });
+      
+      // Update display
+      displayAdvisoryPanel();
+    }
+    
+    function acknowledgeAdvisory(advisoryId) {
+      const advState = activeAdvisories.get(advisoryId);
+      
+      // Check if advisory still exists and is in issued state
+      // (it may have been marked as no-response and deleted)
+      if (!advState || advState.status !== 'issued') return;
+      
+      // Update status to acknowledged
+      advState.status = 'acknowledged';
+      advState.acknowledgedTime = Date.now();
+      
+      // Update display
+      displayAdvisoryPanel();
+      
+      // Apply the maneuver to the aircraft
+      applyAdvisoryManeuver(advState.advisory);
+    }
+    
+    function applyAdvisoryManeuver(advisory) {
+      // Find the target aircraft
+      const aircraft = simulatedTraffic.find(ac => ac.callsign === advisory.targetCallsign);
+      if (!aircraft) return;
+      
+      // Apply the recommended maneuver
+      if (advisory.maneuver.type === 'altitude') {
+        aircraft.targetAltitude = advisory.maneuver.targetAltitude;
+        aircraft.climbRate = advisory.maneuver.action === 'climb' ? 1000 : -1000;
+      } else if (advisory.maneuver.type === 'heading') {
+        aircraft.targetHeading = advisory.maneuver.targetHeading;
+      }
+    }
+    
+    function detectSimulationConflicts() {
+      if (currentMode !== 'simulation') return;
+      
+      const alerts = [];
+      
+      for (let i = 0; i < simulatedTraffic.length; i++) {
+        for (let j = i + 1; j < simulatedTraffic.length; j++) {
+          const ac1 = simulatedTraffic[i];
+          const ac2 = simulatedTraffic[j];
+          
+          // Check current separation first
+          const currentDistance = calculateDistance(ac1.lat, ac1.lon, ac2.lat, ac2.lon);
+          const currentAltSep = Math.abs(ac1.altitude - ac2.altitude);
+          
+          // Predict future conflicts (1-10 minutes ahead)
+          for (let minutes = 1; minutes <= 10; minutes++) {
+            const pos1 = predictPosition(ac1, minutes);
+            const pos2 = predictPosition(ac2, minutes);
+            
+            const futureDistance = calculateDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+            const altSeparation = Math.abs(pos1.alt - pos2.alt);
+            
+            if (futureDistance < conflictSensitivity && altSeparation < 1000) {
+              const existingAlert = alerts.find(a => 
+                (a.aircraft1 === ac1.callsign && a.aircraft2 === ac2.callsign) ||
+                (a.aircraft1 === ac2.callsign && a.aircraft2 === ac1.callsign)
+              );
+              
+              if (!existingAlert) {
+                let severity;
+                if (minutes <= 3) {
+                  severity = 'critical';
+                } else if (minutes <= 5) {
+                  severity = 'warning';
+                } else {
+                  severity = 'caution';
+                }
+                
+                alerts.push({
+                  aircraft1: ac1.callsign,
+                  aircraft2: ac2.callsign,
+                  alt1: Math.round(ac1.altitude),
+                  alt2: Math.round(ac2.altitude),
+                  timeToConflict: minutes,
+                  predictedDistance: futureDistance,
+                  altSeparation: altSeparation,
+                  severity: severity
+                });
+              }
+              
+              break;
+            }
+          }
+        }
+      }
+      
+      totalConflictsDetected = alerts.length;
+      displayAlerts(alerts);
+      
+      if (simulatedTraffic.length > 0) {
+        const conflictRate = totalConflictsDetected / simulatedTraffic.length;
+        safetyScore = Math.max(0, Math.min(100, 100 - (conflictRate * 50)));
+      }
     }
 
+    function updateMetrics() {
+      document.getElementById('metric-aircraft').textContent = simulatedTraffic.length;
+      document.getElementById('metric-conflicts').textContent = totalConflictsDetected;
+      document.getElementById('metric-safety').textContent = safetyScore.toFixed(1) + '%';
+      
+      const conflictContainer = document.getElementById('metric-conflicts-container');
+      conflictContainer.classList.remove('warning', 'danger');
+      if (totalConflictsDetected > 5) {
+        conflictContainer.classList.add('danger');
+      } else if (totalConflictsDetected > 0) {
+        conflictContainer.classList.add('warning');
+      }
+      
+      const traditionalCapacity = 35;
+      const utilizationPercent = (simulatedTraffic.length / traditionalCapacity) * 100;
+      document.getElementById('metric-capacity').textContent = utilizationPercent.toFixed(0) + '%';
+    }
+
+    function loadScenario(scenarioType) {
+      resetSimulation();
+      
+      switch(scenarioType) {
+        case 'normal':
+          trafficDensity = 50;
+          conflictSensitivity = 5;
+          break;
+        case 'peak':
+          trafficDensity = 100;
+          conflictSensitivity = 5;
+          break;
+        case 'stress':
+          trafficDensity = 150;
+          conflictSensitivity = 4;
+          break;
+        case 'future':
+          trafficDensity = 200;
+          conflictSensitivity = 3.5;
+          break;
+      }
+      
+      document.getElementById('density-slider').value = trafficDensity;
+      document.getElementById('density-value').textContent = trafficDensity;
+      document.getElementById('sensitivity-slider').value = conflictSensitivity;
+      document.getElementById('sensitivity-value').textContent = conflictSensitivity;
+      
+      generateSimulatedTraffic(trafficDensity);
+    }
+
+    function generateReport() {
+      const report = {
+        timestamp: new Date().toISOString(),
+        facility: currentFacility,
+        facilityName: facilities[currentFacility].name,
+        duration: simulationElapsedTime,
+        metrics: {
+          totalAircraft: simulatedTraffic.length,
+          conflictsDetected: totalConflictsDetected,
+          safetyScore: safetyScore,
+          capacityUtilization: (simulatedTraffic.length / 35) * 100,
+          traditionalCapacity: 35,
+          demonstratedCapacity: simulatedTraffic.length
+        },
+        configuration: {
+          trafficDensity: trafficDensity,
+          conflictSensitivity: conflictSensitivity,
+          simulationSpeed: simulationSpeed,
+          sectorRadius: sectorRadius
+        }
+      };
+      
+      console.log('Simulation Report:', report);
+      
+      alert(`SIMULATION REPORT GENERATED
+      
+Facility: ${report.facilityName} (${report.facility})
+Duration: ${Math.floor(report.duration / 60)}m ${Math.floor(report.duration % 60)}s
+
+METRICS:
+• Aircraft: ${report.metrics.totalAircraft}
+• Conflicts: ${report.metrics.conflictsDetected}
+• Safety Score: ${report.metrics.safetyScore.toFixed(1)}%
+• Capacity: ${report.metrics.capacityUtilization.toFixed(0)}%
+
+CAPACITY ANALYSIS:
+• Traditional Limit: ${report.metrics.traditionalCapacity} aircraft
+• Demonstrated: ${report.metrics.demonstratedCapacity} aircraft
+• Increase: ${((report.metrics.demonstratedCapacity / report.metrics.traditionalCapacity - 1) * 100).toFixed(0)}%
+
+Report saved to console.`);
+    }
+
+    // ========== SHARED FUNCTIONS ==========
+    
     function predictPosition(aircraft, minutes) {
       if (!aircraft.speed || aircraft.speed < 50) {
         return {
@@ -1747,9 +2728,95 @@
       const newPos = calculateEndPoint(aircraft.lat, aircraft.lon, aircraft.heading, distanceNM);
       
       let predictedAlt = aircraft.altitude;
+      
+      // Account for climb/descent if already in progress
       if (aircraft.climbRate !== 0) {
         predictedAlt += aircraft.climbRate * minutes;
         predictedAlt = Math.max(aircraft.altitude, Math.min(aircraft.targetAltitude || aircraft.altitude, predictedAlt));
+      } else {
+        // Predict altitude changes based on traffic type and position
+        const facility = facilities[currentFacility];
+        const currentDist = calculateDistance(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        const futureDist = calculateDistance(facility.pos[0], facility.pos[1], newPos[0], newPos[1]);
+        
+        // Determine if aircraft is inbound, outbound, or crossing
+        const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+        const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+        
+        const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+        const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+        
+        const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+        const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+        
+        let trafficType;
+        if (normalizedToFacility < 45) {
+          trafficType = 'inbound';
+        } else if (normalizedFromFacility < 45) {
+          trafficType = 'outbound';
+        } else {
+          trafficType = 'crossing';
+        }
+        
+        // INBOUND TRAFFIC - Expect descent as they approach
+        if (trafficType === 'inbound' && futureDist < currentDist) {
+          // Getting closer to facility - should be descending
+          if (aircraft.altitude > 8000) {
+            // High altitude - steeper descent expected
+            // Typical descent rate: 1500-2000 fpm when far out, 500-1000 fpm closer in
+            let descentRate;
+            if (futureDist > 30) {
+              descentRate = -1500; // Steeper descent far from airport
+            } else if (futureDist > 15) {
+              descentRate = -1000; // Moderate descent
+            } else {
+              descentRate = -500; // Gentle descent close in
+            }
+            
+            predictedAlt = aircraft.altitude + (descentRate * minutes);
+            
+            // Don't predict below pattern altitude (typically 2000-3000 ft)
+            predictedAlt = Math.max(2500, predictedAlt);
+          }
+        }
+        
+        // OUTBOUND TRAFFIC - Expect climb as they depart
+        if (trafficType === 'outbound' && futureDist > currentDist) {
+          // Getting further from facility - should be climbing
+          if (aircraft.altitude < 18000) {
+            // Below cruise altitude - expect climb
+            // Typical climb rate: 1500-2500 fpm initially, then 500-1000 fpm higher up
+            let climbRate;
+            if (aircraft.altitude < 10000) {
+              climbRate = 2000; // Strong climb after takeoff
+            } else if (aircraft.altitude < 15000) {
+              climbRate = 1000; // Moderate climb
+            } else {
+              climbRate = 500; // Gentle climb approaching cruise
+            }
+            
+            predictedAlt = aircraft.altitude + (climbRate * minutes);
+            
+            // Cap at typical cruise altitude for the region
+            predictedAlt = Math.min(40000, predictedAlt);
+          }
+        }
+        
+        // CROSSING TRAFFIC - Typically maintains altitude unless very high or very low
+        if (trafficType === 'crossing') {
+          // Crossing traffic usually maintains altitude
+          // But if they're very low or very high, expect some altitude change
+          if (aircraft.altitude < 5000) {
+            // Very low - might be climbing out
+            predictedAlt = aircraft.altitude + (500 * minutes);
+            predictedAlt = Math.min(10000, predictedAlt);
+          } else if (aircraft.altitude > 35000) {
+            // Very high - might be descending to lower cruise
+            predictedAlt = aircraft.altitude - (200 * minutes);
+            predictedAlt = Math.max(30000, predictedAlt);
+          }
+          // Otherwise maintain altitude
+        }
       }
       
       return {
@@ -1761,7 +2828,8 @@
 
     function displayAlerts(alerts) {
       const alertsList = document.getElementById('alerts-list');
-      const panelHeader = document.getElementById('conflict-panel-header');
+      const conflictBox = document.getElementById('conflict-alert-box');
+      const showBtn = document.getElementById('show-conflict-btn');
       
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const warning = alerts.filter(a => a.severity === 'warning').length;
@@ -1771,81 +2839,331 @@
       document.getElementById('warning-count').textContent = warning;
       document.getElementById('caution-count').textContent = caution;
       
+      // Update show button
+      const totalConflicts = alerts.length;
+      document.getElementById('total-conflicts').textContent = totalConflicts;
+      
+      if (totalConflicts > 0) {
+        showBtn.classList.add('has-conflicts');
+      } else {
+        showBtn.classList.remove('has-conflicts');
+      }
+      
+      // Build map of aircraft to their highest severity conflict
+      const aircraftSeverity = new Map();
+      alerts.forEach(alert => {
+        const severityLevel = alert.severity === 'critical' ? 3 : alert.severity === 'warning' ? 2 : 1;
+        
+        // Update aircraft1
+        if (!aircraftSeverity.has(alert.aircraft1) || aircraftSeverity.get(alert.aircraft1).level < severityLevel) {
+          aircraftSeverity.set(alert.aircraft1, { severity: alert.severity, level: severityLevel });
+        }
+        
+        // Update aircraft2
+        if (!aircraftSeverity.has(alert.aircraft2) || aircraftSeverity.get(alert.aircraft2).level < severityLevel) {
+          aircraftSeverity.set(alert.aircraft2, { severity: alert.severity, level: severityLevel });
+        }
+      });
+      
+      // Update all markers to show conflict status with correct color
+      updateMarkerConflictStatus(aircraftSeverity);
+      
       if (alerts.length === 0) {
-        alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected<br>All aircraft safely separated</div>';
-        panelHeader.classList.remove('has-alerts');
+        alertsList.innerHTML = '<div class="empty-state" style="color:#4caf50;">✅ No conflicts detected - All aircraft safely separated</div>';
+        conflictBox.classList.remove('has-alerts');
+        
+        // Clear advisories in simulation mode
+        if (currentMode === 'simulation') {
+          updateAdvisoryDisplay([]);
+        }
         return;
       }
       
-      panelHeader.classList.add('has-alerts');
+      // Always show conflict box when there are alerts (unless manually hidden)
+      if (!conflictBoxHidden) {
+        conflictBox.classList.remove('hidden');
+        showBtn.style.display = 'none';
+      }
+      
+      conflictBox.classList.add('has-alerts');
       
       alerts.sort((a, b) => a.timeToConflict - b.timeToConflict);
       
-      alertsList.innerHTML = alerts.map(alert => `
+      alertsList.innerHTML = alerts.map((alert, index) => `
         <div class="alert-item ${alert.severity}">
           <div class="alert-header">
             <span class="alert-severity ${alert.severity}">${alert.severity.toUpperCase()}</span>
             <span class="alert-time">⏱️ ${alert.timeToConflict} min</span>
           </div>
-          <div style="margin:8px 0;">
+          <div style="margin:6px 0;">
             <span class="alert-aircraft">${alert.aircraft1}</span>
             <span style="color:#666;"> ↔ </span>
             <span class="alert-aircraft">${alert.aircraft2}</span>
           </div>
           <div class="alert-details">
-            📏 Separation: ${alert.predictedDistance.toFixed(1)} nm<br>
-            📊 Altitude diff: ${Math.round(alert.altSeparation).toLocaleString()} ft<br>
+            📏 ${alert.predictedDistance.toFixed(1)} nm separation<br>
+            📊 ${Math.round(alert.altSeparation).toLocaleString()} ft altitude diff<br>
             ✈️ ${alert.alt1.toLocaleString()} ft | ${alert.alt2.toLocaleString()} ft
           </div>
         </div>
       `).join('');
-    }
-
-    function changeFacility() {
-      currentFacility = document.getElementById('airport').value;
-      const facility = facilities[currentFacility];
-      sectorRadius = facility.radius;
-      map.setView(facility.pos, 9);
-      drawSectorBoundary();
       
-      trafficMarkers.forEach(m => map.removeLayer(m));
-      trafficMarkers = [];
-      
-      if (currentMode === 'live') {
-        liveTraffic = [];
-        loadLiveTraffic();
-      } else {
-        if (simulationRunning) resetSimulation();
+      // Update advisory panel in simulation mode
+      if (currentMode === 'simulation') {
+        // Generate advisories for each conflict
+        const advisories = [];
+        alerts.forEach(alert => {
+          const ac1 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft1);
+          const ac2 = simulatedTraffic.find(ac => ac.callsign === alert.aircraft2);
+          
+          if (ac1 && ac2) {
+            const advisory = generateResolutionAdvice(ac1, ac2, alert);
+            const conflictKey = [alert.aircraft1, alert.aircraft2].sort().join('-');
+            advisories.push({
+              advisory: advisory,
+              conflictKey: conflictKey,
+              alert: alert
+            });
+          }
+        });
+        
+        updateAdvisoryDisplay(advisories);
       }
     }
-
-    function drawSectorBoundary() {
-      if (sectorCircle) map.removeLayer(sectorCircle);
+    
+    function updateAdvisoryDisplay(advisories) {
+      const advisoryList = document.getElementById('advisory-list');
+      const countElement = document.getElementById('advisory-count');
       
-      const facility = facilities[currentFacility];
-      sectorCircle = L.circle(facility.pos, {
-        radius: sectorRadius * 1852,
-        color: '#00acc1',
-        fillColor: '#00acc1',
-        fillOpacity: 0.1,
-        weight: 2,
-        dashArray: '10, 10'
-      }).addTo(map);
+      if (!advisoryList) {
+        console.error('Advisory list element not found!');
+        return;
+      }
       
-      L.marker(facility.pos, {
-        icon: L.divIcon({
-          html: '<div style="background:#00acc1;color:#000;padding:5px 10px;border-radius:5px;font-weight:700;">' + currentFacility + '</div>',
-          className: ''
-        })
-      }).addTo(map);
+      // Merge new advisories with existing tracked advisories
+      advisories.forEach(advData => {
+        const existingAdv = Array.from(activeAdvisories.values()).find(a => a.conflictKey === advData.conflictKey);
+        
+        if (!existingAdv) {
+          // Create new advisory
+          const advisoryId = advisoryIdCounter++;
+          activeAdvisories.set(advisoryId, {
+            id: advisoryId,
+            conflictKey: advData.conflictKey,
+            advisory: advData.advisory,
+            status: 'pending',
+            createdTime: Date.now(),
+            issuedTime: null,
+            acknowledgedTime: null,
+            noResponseTime: null,
+            originalAircraft1: advData.alert.aircraft1,
+            originalAircraft2: advData.alert.aircraft2,
+            targetedAircraft: advData.advisory.targetCallsign,
+            conflictData: advData.alert
+          });
+        } else {
+          // Update existing advisory data (but keep status)
+          existingAdv.advisory = advData.advisory;
+          existingAdv.conflictData = advData.alert;
+        }
+      });
+      
+      // Remove advisories for conflicts that no longer exist
+      const currentConflictKeys = new Set(advisories.map(a => a.conflictKey));
+      const advisoriesToRemove = [];
+      
+      activeAdvisories.forEach((adv, id) => {
+        if (!currentConflictKeys.has(adv.conflictKey) && adv.status !== 'no-response') {
+          advisoriesToRemove.push(id);
+        }
+      });
+      
+      advisoriesToRemove.forEach(id => activeAdvisories.delete(id));
+      
+      // Update count
+      if (countElement) {
+        countElement.textContent = `(${activeAdvisories.size} active)`;
+      }
+      
+      // Display advisories
+      if (activeAdvisories.size === 0) {
+        advisoryList.innerHTML = '<div class="empty-state">No active advisories</div>';
+        return;
+      }
+      
+      // Sort by severity and time
+      const sortedAdvisories = Array.from(activeAdvisories.values()).sort((a, b) => {
+        const severityOrder = { critical: 0, warning: 1, caution: 2 };
+        const aSeverity = severityOrder[a.advisory.severity] || 3;
+        const bSeverity = severityOrder[b.advisory.severity] || 3;
+        
+        if (aSeverity !== bSeverity) return aSeverity - bSeverity;
+        return a.createdTime - b.createdTime;
+      });
+      
+      advisoryList.innerHTML = sortedAdvisories.map(advState => {
+        const adv = advState.advisory;
+        
+        let statusClass = advState.status;
+        let statusText = advState.status === 'no-response' ? 'NO RESPONSE' : advState.status.toUpperCase();
+        let buttonHtml = '';
+        
+        if (advState.status === 'pending') {
+          buttonHtml = `<button class="advisory-action-btn issue" onclick="issueAdvisory(${advState.id})">
+            📡 ISSUE ADVISORY
+          </button>`;
+        } else if (advState.status === 'issued') {
+          buttonHtml = `
+            <button class="advisory-action-btn waiting">
+              ⏳ AWAITING ACKNOWLEDGEMENT...
+            </button>
+            <button class="advisory-action-btn no-response" onclick="markNoResponse(${advState.id})" style="margin-top:4px;">
+              ⚠️ NO RESPONSE - SWITCH TARGET
+            </button>
+          `;
+        } else if (advState.status === 'no-response') {
+          buttonHtml = `<div style="text-align:center;color:#f44336;font-size:11px;margin-top:8px;">
+            ❌ No response - Switching to alternate aircraft...
+          </div>`;
+        } else if (advState.status === 'acknowledged') {
+          buttonHtml = `<div style="text-align:center;color:#4caf50;font-size:11px;margin-top:8px;">
+            ✅ Advisory acknowledged - monitoring compliance
+          </div>`;
+        }
+        
+        // Build detailed advisory information
+        let maneuverText = '';
+        let maneuverIcon = '';
+        if (adv.maneuver.type === 'altitude') {
+          maneuverIcon = adv.maneuver.action === 'climb' ? '⬆️' : '⬇️';
+          maneuverText = `${maneuverIcon} ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount} feet to ${adv.maneuver.targetAltitude.toLocaleString()} ft`;
+        } else {
+          maneuverIcon = adv.maneuver.action === 'left' ? '↶' : '↷';
+          maneuverText = `${maneuverIcon} TURN ${adv.maneuver.action.toUpperCase()} ${adv.maneuver.amount}° to heading ${adv.maneuver.targetHeading.toString().padStart(3, '0')}°`;
+        }
+        
+        return `
+          <div class="advisory-notification ${statusClass}" id="advisory-${advState.id}">
+            <span class="advisory-status ${statusClass}">${statusText}</span>
+            
+            <div class="advisory-aircraft-id">
+              ${adv.targetCallsign}
+              <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;">(${adv.targetCategory.toUpperCase()})</span>
+            </div>
+            
+            <div style="background:rgba(244,67,54,0.15);padding:8px;border-radius:4px;margin:8px 0;border-left:3px solid #f44336;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">⚠️ Traffic Alert</div>
+              <div style="font-size:12px;color:#fff;">
+                <strong>${adv.otherCallsign}</strong> (${adv.otherCategory.toUpperCase()})
+              </div>
+              <div style="font-size:11px;color:#aaa;margin-top:4px;">
+                Position: ${adv.trafficPosition.direction}<br>
+                Altitude: ${adv.otherAltitude.toLocaleString()} ft 
+                (${Math.abs(adv.currentAltitude - adv.otherAltitude)} ft ${adv.currentAltitude > adv.otherAltitude ? 'below' : 'above'})<br>
+                Time to conflict: ${adv.timeToConflict} min
+              </div>
+            </div>
+            
+            <div style="background:rgba(0,172,193,0.2);padding:8px;border-radius:4px;border-left:3px solid #00acc1;margin-bottom:8px;">
+              <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px;">📋 Recommended Action</div>
+              <div style="font-size:13px;font-weight:700;color:#00acc1;">
+                ${maneuverText}
+              </div>
+            </div>
+            
+            <div style="font-size:11px;color:#ffeb3b;padding:6px 8px;background:rgba(255,235,59,0.1);border-radius:4px;margin-bottom:8px;">
+              👁️ Maintain visual scanning - Traffic at ${adv.trafficPosition.direction}
+            </div>
+            
+            ${buttonHtml}
+          </div>
+        `;
+      }).join('');
     }
 
-    function updateStatus(type, message) {
-      const statusText = document.getElementById('status-text');
-      const statusIndicator = document.getElementById('status-indicator');
-      
-      statusText.textContent = message;
-      statusIndicator.className = 'status-indicator ' + type;
+    function updateMarkerConflictStatus(aircraftSeverity) {
+      trafficMarkers.forEach(marker => {
+        const markerElement = marker.getElement();
+        if (!markerElement) return;
+        
+        // Find the aircraft for this marker
+        let aircraft = null;
+        let severityInfo = null;
+        
+        if (currentMode === 'live') {
+          aircraft = liveTraffic.find(ac => {
+            const markerPos = marker.getLatLng();
+            return Math.abs(ac.lat - markerPos.lat) < 0.0001 && Math.abs(ac.lon - markerPos.lng) < 0.0001;
+          });
+          if (aircraft && aircraftSeverity.has(aircraft.callsign)) {
+            severityInfo = aircraftSeverity.get(aircraft.callsign);
+          }
+        } else {
+          aircraft = simulatedTraffic.find(ac => ac.id === marker.aircraftId);
+          if (aircraft && aircraftSeverity.has(aircraft.callsign)) {
+            severityInfo = aircraftSeverity.get(aircraft.callsign);
+          }
+        }
+        
+        const triangleDiv = markerElement.querySelector('div');
+        if (!triangleDiv) return;
+        
+        if (severityInfo) {
+          // Add conflict styling - color and flashing based on severity
+          let conflictColor, animation;
+          
+          if (severityInfo.severity === 'critical') {
+            conflictColor = '#f44336'; // Red
+            animation = 'conflictFlashCritical 1s infinite';
+          } else if (severityInfo.severity === 'warning') {
+            conflictColor = '#ff9800'; // Orange
+            animation = 'conflictFlashWarning 1s infinite';
+          } else {
+            conflictColor = '#ffeb3b'; // Yellow
+            animation = 'conflictFlashCaution 1s infinite';
+          }
+          
+          triangleDiv.style.color = conflictColor;
+          triangleDiv.style.animation = animation;
+        } else {
+          // Reset to normal color based on traffic type
+          if (aircraft) {
+            let normalColor;
+            
+            if (currentMode === 'live') {
+              if (aircraft.trafficType === 'inbound') {
+                normalColor = '#4caf50';
+              } else if (aircraft.trafficType === 'outbound') {
+                normalColor = '#00acc1';
+              } else {
+                normalColor = '#9c27b0';
+              }
+            } else {
+              // For simulation, calculate traffic type
+              const facility = facilities[currentFacility];
+              const bearingToFacility = calculateBearing(aircraft.lat, aircraft.lon, facility.pos[0], facility.pos[1]);
+              const bearingFromFacility = calculateBearing(facility.pos[0], facility.pos[1], aircraft.lat, aircraft.lon);
+              
+              const headingToFacilityDiff = Math.abs(aircraft.heading - bearingToFacility);
+              const headingFromFacilityDiff = Math.abs(aircraft.heading - bearingFromFacility);
+              
+              const normalizedToFacility = headingToFacilityDiff > 180 ? 360 - headingToFacilityDiff : headingToFacilityDiff;
+              const normalizedFromFacility = headingFromFacilityDiff > 180 ? 360 - headingFromFacilityDiff : headingFromFacilityDiff;
+              
+              if (normalizedToFacility < 45) {
+                normalColor = '#4caf50';
+              } else if (normalizedFromFacility < 45) {
+                normalColor = '#00acc1';
+              } else {
+                normalColor = '#9c27b0';
+              }
+            }
+            
+            triangleDiv.style.color = normalColor;
+            triangleDiv.style.animation = '';
+          }
+        }
+      });
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -1886,6 +3204,116 @@
       );
       
       return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+    }
+
+    function updateStatus(type, message) {
+      const statusText = document.getElementById('status-text');
+      const statusIndicator = document.getElementById('status-indicator');
+      
+      statusText.textContent = message;
+      statusIndicator.className = 'status-indicator ' + type;
+    }
+
+    function toggleConflictBox() {
+      const box = document.getElementById('conflict-alert-box');
+      const btn = document.getElementById('show-conflict-btn');
+      conflictBoxHidden = !conflictBoxHidden;
+      
+      if (conflictBoxHidden) {
+        box.classList.add('hidden');
+        btn.style.display = 'block';
+      } else {
+        box.classList.remove('hidden');
+        btn.style.display = 'none';
+      }
+    }
+
+    function toggleLeftPanel() {
+      const panel = document.getElementById('left-panel');
+      const toggle = document.getElementById('left-panel-toggle');
+      leftPanelCollapsed = !leftPanelCollapsed;
+      
+      if (leftPanelCollapsed) {
+        panel.classList.add('collapsed');
+        toggle.textContent = '▶';
+      } else {
+        panel.classList.remove('collapsed');
+        toggle.textContent = '◀';
+      }
+    }
+
+    function makeDraggable(element) {
+      const header = document.getElementById('conflict-header');
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      
+      header.onmousedown = dragMouseDown;
+      
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+      
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+        element.style.bottom = "auto";
+        element.style.transform = "none";
+      }
+      
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+
+    function makeResizable(element) {
+      const resizeHandle = element.querySelector('.resize-handle');
+      if (!resizeHandle) return;
+      
+      let startX, startY, startWidth, startHeight;
+      
+      resizeHandle.addEventListener('mousedown', initResize);
+      
+      function initResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = parseInt(document.defaultView.getComputedStyle(element).width, 10);
+        startHeight = parseInt(document.defaultView.getComputedStyle(element).height, 10);
+        
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+      }
+      
+      function resize(e) {
+        const width = startWidth + (e.clientX - startX);
+        const height = startHeight + (e.clientY - startY);
+        
+        // Apply min/max constraints
+        if (width >= 400 && width <= window.innerWidth * 0.9) {
+          element.style.width = width + 'px';
+        }
+        if (height >= 150 && height <= 500) {
+          element.style.height = height + 'px';
+        }
+      }
+      
+      function stopResize() {
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+      }
     }
   </script>
 </body>
