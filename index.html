@@ -115,17 +115,45 @@
       position: absolute;
       top: 20px;
       left: 20px;
-      background: rgba(15, 15, 35, 0.95);
+      background: rgba(15, 15, 35, 0.98);
       border: 2px solid #00acc1;
       border-radius: 8px;
       padding: 12px 20px;
-      z-index: 500;
+      z-index: 1000;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: all;
       display: flex;
       align-items: center;
       gap: 15px;
+      cursor: move;
+      transition: all 0.3s ease;
+    }
+    
+    #sim-control-bar.collapsed {
+      padding: 8px 15px;
+      gap: 10px;
+    }
+    
+    #sim-control-bar.collapsed .sim-stat,
+    #sim-control-bar.collapsed .expand-btn {
+      display: none;
+    }
+    
+    .collapse-btn {
+      background: rgba(0, 172, 193, 0.2);
+      border: 1px solid #00acc1;
+      color: #00acc1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    
+    .collapse-btn:hover {
+      background: rgba(0, 172, 193, 0.3);
     }
     
     .control-btn-large {
@@ -195,15 +223,13 @@
     
     /* Expanded Sim Controls */
     #sim-controls-expanded {
-      position: absolute;
-      top: 80px;
-      left: 20px;
+      position: fixed;
       width: 320px;
       background: rgba(15, 15, 35, 0.95);
       border: 2px solid #00acc1;
       border-radius: 8px;
       padding: 15px;
-      z-index: 499;
+      z-index: 998;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: all;
@@ -796,6 +822,10 @@
           </div>
           
           <button class="expand-btn" onclick="toggleExpandedControls()">⚙️ SETTINGS</button>
+          
+          <button class="collapse-btn" onclick="toggleSimControlBar()">
+            <span id="sim-bar-collapse-icon">−</span>
+          </button>
         </div>
         
         <!-- Expanded Controls -->
@@ -902,6 +932,7 @@
     let trafficPanelCollapsed = false;
     let expandedControlsVisible = false;
     let currentTrafficTab = 'active';
+    let simControlBarCollapsed = false;
     
     // Live Feed Variables
     let liveTraffic = [];
@@ -942,7 +973,80 @@
 
       drawSectorBoundary();
       startLiveMode();
+      
+      // Make sim control bar draggable in simulation mode
+      makeSimControlBarDraggable();
     });
+
+    function toggleSimControlBar() {
+      simControlBarCollapsed = !simControlBarCollapsed;
+      const bar = document.getElementById('sim-control-bar');
+      const icon = document.getElementById('sim-bar-collapse-icon');
+      
+      if (simControlBarCollapsed) {
+        bar.classList.add('collapsed');
+        icon.textContent = '+';
+      } else {
+        bar.classList.remove('collapsed');
+        icon.textContent = '−';
+      }
+    }
+
+    function makeSimControlBarDraggable() {
+      const element = document.getElementById('sim-control-bar');
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      let isDragging = false;
+      
+      element.onmousedown = dragMouseDown;
+      
+      function dragMouseDown(e) {
+        // Don't drag if clicking on buttons
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') {
+          return;
+        }
+        
+        e = e || window.event;
+        e.preventDefault();
+        isDragging = true;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+        element.style.cursor = 'grabbing';
+      }
+      
+      function elementDrag(e) {
+        if (!isDragging) return;
+        
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        
+        // Calculate new position
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+        
+        // Keep within viewport bounds
+        const maxTop = window.innerHeight - element.offsetHeight - 20;
+        const maxLeft = window.innerWidth - element.offsetWidth - 20;
+        
+        newTop = Math.max(80, Math.min(newTop, maxTop)); // 80px to clear header
+        newLeft = Math.max(20, Math.min(newLeft, maxLeft));
+        
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+      }
+      
+      function closeDragElement() {
+        isDragging = false;
+        document.onmouseup = null;
+        document.onmousemove = null;
+        element.style.cursor = 'move';
+      }
+    }
 
     function switchMode(mode) {
       if (currentMode === mode) return;
@@ -1016,7 +1120,13 @@
     function toggleExpandedControls() {
       expandedControlsVisible = !expandedControlsVisible;
       const panel = document.getElementById('sim-controls-expanded');
+      const bar = document.getElementById('sim-control-bar');
+      
       if (expandedControlsVisible) {
+        // Position expanded controls below the control bar
+        const barRect = bar.getBoundingClientRect();
+        panel.style.top = (barRect.bottom + 10) + 'px';
+        panel.style.left = barRect.left + 'px';
         panel.classList.add('visible');
       } else {
         panel.classList.remove('visible');
