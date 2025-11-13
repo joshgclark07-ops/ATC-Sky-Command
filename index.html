@@ -283,28 +283,29 @@
       background: #ff5a4f;
     }
     
-    /* Left Panel - Active Traffic */
-    #left-panel {
+    /* Unified Traffic Panel - Left Side */
+    #traffic-panel {
       position: absolute;
       left: 0;
       top: 0;
       bottom: 0;
-      width: 280px;
+      width: 300px;
       background: rgba(15, 15, 35, 0.95);
       border-right: 2px solid #00acc1;
-      overflow-y: auto;
-      padding: 15px;
+      overflow: hidden;
       z-index: 500;
       transition: transform 0.3s ease;
       backdrop-filter: blur(10px);
       pointer-events: all;
+      display: flex;
+      flex-direction: column;
     }
     
-    #left-panel.collapsed {
-      transform: translateX(-280px);
+    #traffic-panel.collapsed {
+      transform: translateX(-300px);
     }
     
-    #left-panel-toggle {
+    #traffic-panel-toggle {
       position: absolute;
       right: -35px;
       top: 20px;
@@ -319,28 +320,50 @@
       z-index: 501;
     }
     
-    /* Inbound Alert Box - Top Right */
-    #inbound-alert-box {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      min-width: 250px;
-      max-width: 350px;
-      max-height: 400px;
-      background: rgba(15, 15, 35, 0.95);
-      border: 2px solid #4caf50;
-      border-radius: 8px;
-      padding: 12px;
-      z-index: 500;
-      overflow-y: auto;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      pointer-events: all;
+    #traffic-panel-tabs {
+      display: flex;
+      background: rgba(26, 26, 46, 0.8);
+      border-bottom: 2px solid #00acc1;
     }
     
-    #inbound-alert-box.empty {
+    .traffic-tab {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .traffic-tab:hover {
+      color: #00acc1;
+      background: rgba(0, 172, 193, 0.1);
+    }
+    
+    .traffic-tab.active {
+      color: #00acc1;
+      border-bottom-color: #00acc1;
+      background: rgba(0, 172, 193, 0.05);
+    }
+    
+    #traffic-panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+    }
+    
+    .traffic-tab-panel {
       display: none;
     }
+    
+    .traffic-tab-panel.active {
+      display: block;
+    }
+
     
     /* Conflict Panel - Right Side */
     #conflict-panel {
@@ -705,35 +728,46 @@
       
       <!-- Live Feed Dashboard -->
       <div id="live-dashboard" class="dashboard active">
-        <div id="left-panel">
-          <button id="left-panel-toggle" onclick="toggleLeftPanel()">◀</button>
+        <div id="traffic-panel">
+          <button id="traffic-panel-toggle" onclick="toggleTrafficPanel()">◀</button>
           
-          <div class="panel-section">
-            <div class="panel-header">🎯 Active in Sector</div>
-            
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:6px;">⬇️ INBOUND</div>
-              <div id="active-inbound"></div>
+          <div id="traffic-panel-tabs">
+            <button class="traffic-tab active" onclick="switchTrafficTab('active')">🎯 ACTIVE</button>
+            <button class="traffic-tab" onclick="switchTrafficTab('inbound')">📡 INBOUND</button>
+          </div>
+          
+          <div id="traffic-panel-content">
+            <!-- Active Traffic Tab -->
+            <div id="active-tab" class="traffic-tab-panel active">
+              <div class="panel-section">
+                <div style="margin-bottom:15px;">
+                  <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
+                  <div id="active-inbound"></div>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                  <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:8px;">⬆️ OUTBOUND</div>
+                  <div id="active-outbound"></div>
+                </div>
+                
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:8px;">↔️ CROSSING</div>
+                  <div id="active-crossing"></div>
+                </div>
+              </div>
             </div>
             
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:6px;">⬆️ OUTBOUND</div>
-              <div id="active-outbound"></div>
-            </div>
-            
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:6px;">↔️ CROSSING</div>
-              <div id="active-crossing"></div>
+            <!-- Inbound Traffic Tab -->
+            <div id="inbound-tab" class="traffic-tab-panel">
+              <div class="panel-section">
+                <div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:12px;">
+                  📡 Approaching Sector
+                  <span style="float:right;background:#4caf50;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;" id="inbound-count">0</span>
+                </div>
+                <div id="inbound-traffic"></div>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div id="inbound-alert-box">
-          <div class="inbound-header">
-            📡 INBOUND TRAFFIC
-            <span class="inbound-count" id="inbound-count">0</span>
-          </div>
-          <div id="inbound-traffic"></div>
         </div>
       </div>
       
@@ -787,36 +821,47 @@
           <button class="btn btn-danger" onclick="resetSimulation()">RESET SIMULATION</button>
         </div>
         
-        <!-- Keep Traffic Panels -->
-        <div id="left-panel">
-          <button id="left-panel-toggle" onclick="toggleLeftPanel()">◀</button>
+        <!-- Unified Traffic Panel -->
+        <div id="traffic-panel">
+          <button id="traffic-panel-toggle" onclick="toggleTrafficPanel()">◀</button>
           
-          <div class="panel-section">
-            <div class="panel-header">🎯 Active in Sector</div>
-            
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:6px;">⬇️ INBOUND</div>
-              <div id="sim-active-inbound"></div>
+          <div id="traffic-panel-tabs">
+            <button class="traffic-tab active" onclick="switchTrafficTab('active')">🎯 ACTIVE</button>
+            <button class="traffic-tab" onclick="switchTrafficTab('inbound')">📡 INBOUND</button>
+          </div>
+          
+          <div id="traffic-panel-content">
+            <!-- Active Traffic Tab -->
+            <div id="sim-active-tab" class="traffic-tab-panel active">
+              <div class="panel-section">
+                <div style="margin-bottom:15px;">
+                  <div style="font-size:11px;font-weight:700;color:#4caf50;margin-bottom:8px;">⬇️ INBOUND</div>
+                  <div id="sim-active-inbound"></div>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                  <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:8px;">⬆️ OUTBOUND</div>
+                  <div id="sim-active-outbound"></div>
+                </div>
+                
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:8px;">↔️ CROSSING</div>
+                  <div id="sim-active-crossing"></div>
+                </div>
+              </div>
             </div>
             
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#00acc1;margin-bottom:6px;">⬆️ OUTBOUND</div>
-              <div id="sim-active-outbound"></div>
-            </div>
-            
-            <div style="margin-top:12px;">
-              <div style="font-size:11px;font-weight:700;color:#9c27b0;margin-bottom:6px;">↔️ CROSSING</div>
-              <div id="sim-active-crossing"></div>
+            <!-- Inbound Traffic Tab -->
+            <div id="sim-inbound-tab" class="traffic-tab-panel">
+              <div class="panel-section">
+                <div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:12px;">
+                  📡 Approaching Sector
+                  <span style="float:right;background:#4caf50;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;" id="sim-inbound-count">0</span>
+                </div>
+                <div id="sim-inbound-traffic"></div>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div id="inbound-alert-box">
-          <div class="inbound-header">
-            📡 INBOUND TRAFFIC
-            <span class="inbound-count" id="sim-inbound-count">0</span>
-          </div>
-          <div id="sim-inbound-traffic"></div>
         </div>
       </div>
       
@@ -854,8 +899,9 @@
     let sectorRadius = 50;
     let currentMode = 'live';
     let conflictPanelHidden = false;
-    let leftPanelCollapsed = false;
+    let trafficPanelCollapsed = false;
     let expandedControlsVisible = false;
+    let currentTrafficTab = 'active';
     
     // Live Feed Variables
     let liveTraffic = [];
@@ -922,6 +968,51 @@
       }
     }
 
+    function toggleTrafficPanel() {
+      const panel = document.getElementById('traffic-panel');
+      const toggle = document.getElementById('traffic-panel-toggle');
+      trafficPanelCollapsed = !trafficPanelCollapsed;
+      
+      if (trafficPanelCollapsed) {
+        panel.classList.add('collapsed');
+        toggle.textContent = '▶';
+      } else {
+        panel.classList.remove('collapsed');
+        toggle.textContent = '◀';
+      }
+    }
+
+    function switchTrafficTab(tab) {
+      currentTrafficTab = tab;
+      
+      // Update tab buttons
+      document.querySelectorAll('.traffic-tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Update tab panels based on mode
+      if (currentMode === 'live') {
+        document.getElementById('active-tab').classList.remove('active');
+        document.getElementById('inbound-tab').classList.remove('active');
+        
+        if (tab === 'active') {
+          document.getElementById('active-tab').classList.add('active');
+        } else {
+          document.getElementById('inbound-tab').classList.add('active');
+        }
+      } else {
+        document.getElementById('sim-active-tab').classList.remove('active');
+        document.getElementById('sim-inbound-tab').classList.remove('active');
+        
+        if (tab === 'active') {
+          document.getElementById('sim-active-tab').classList.add('active');
+        } else {
+          document.getElementById('sim-inbound-tab').classList.add('active');
+        }
+      }
+    }
+
     function toggleExpandedControls() {
       expandedControlsVisible = !expandedControlsVisible;
       const panel = document.getElementById('sim-controls-expanded');
@@ -939,20 +1030,6 @@
         panel.classList.add('hidden');
       } else {
         panel.classList.remove('hidden');
-      }
-    }
-
-    function toggleLeftPanel() {
-      const panel = document.getElementById('left-panel');
-      const toggle = document.getElementById('left-panel-toggle');
-      leftPanelCollapsed = !leftPanelCollapsed;
-      
-      if (leftPanelCollapsed) {
-        panel.classList.add('collapsed');
-        toggle.textContent = '▶';
-      } else {
-        panel.classList.remove('collapsed');
-        toggle.textContent = '◀';
       }
     }
 
